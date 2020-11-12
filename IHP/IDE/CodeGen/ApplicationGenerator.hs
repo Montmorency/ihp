@@ -86,6 +86,7 @@ generateGenericApplication applicationName =
                 <> "import IHP.Controller.RequestContext\n"
                 <> "import " <> applicationName <> ".Types\n"
                 <> "import " <> applicationName <> ".Routes\n"
+                <> "import Text.Blaze.Internal (MarkupM (Parent, Leaf))\n"
                 <> "\n"
                 <> "defaultLayout :: (?context :: RequestContext) => Html -> Html\n"
                 <> "defaultLayout inner = H.docTypeHtml ! A.lang \"en\" $ [hsx|\n"
