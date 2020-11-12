@@ -172,6 +172,7 @@ generateGenericApplication applicationName =
             welcomeViewStaticHs = 
               "module " <> applicationName <> ".View.Static.Welcome where\n"
              <>"import " <> applicationName <> ".View.Prelude\n"
+             <>"import Text.Blaze.Html5 (preEscapedText)\n"
              <>"\n"
              <>"data WelcomeView = WelcomeView\n"
              <>"\n"
@@ -180,7 +181,7 @@ generateGenericApplication applicationName =
              <>"         <div style=\"background-color: #657b83; padding-top: 2rem; padding-bottom: 2rem; color:hsla(196, 13%, 96%, 1); border-radius: 4px\">\n"
              <>"              <div style=\"max-width: 800px; margin-left: auto; margin-right: auto\">\n"
              <>"                  <h1 style=\"margin-bottom: 2rem; font-size: 2rem; font-weight: 300; border-bottom: 1px solid white; padding-bottom: 0.25rem; border-color: hsla(196, 13%, 60%, 1)\">\n" 
-             <>"                      λ IHP\n"
+             <>"                     {preEscapedText \"&lambda;\"}  IHP\n"
              <>"                  </h1>\n"
              <>"\n"         
              <>"                  <h2 style=\"margin-top: 0; margin-bottom: 0rem; font-weight: 900; font-size: 3rem\">\n"
