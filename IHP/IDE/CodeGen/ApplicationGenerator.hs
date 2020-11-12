@@ -76,7 +76,7 @@ generateGenericApplication applicationName =
                 <> "import Generated.Types\n"
 
             viewLayoutHs =
-                "module " <> applicationName <> ".View.Layout (defaultLayout, Html) where\n"
+                "module " <> applicationName <> ".View.Layout (defaultLayout) where\n"
                 <> "\n"
                 <> "import IHP.ViewPrelude\n"
                 <> "import IHP.Environment\n"
@@ -88,7 +88,7 @@ generateGenericApplication applicationName =
                 <> "import " <> applicationName <> ".Routes\n"
                 <> "import Text.Blaze.Internal (MarkupM (Parent, Leaf))\n"
                 <> "\n"
-                <> "defaultLayout :: (?context :: RequestContext) => Html -> Html\n"
+                <> "defaultLayout :: (?context :: RequestContext) => MarkupM () -> MarkupM ()\n"
                 <> "defaultLayout inner = H.docTypeHtml ! A.lang \"en\" $ [hsx|\n"
                 <> "<head>\n"
                 <> "    {metaTags}\n"
@@ -150,7 +150,6 @@ generateGenericApplication applicationName =
                 <> ", module " <> applicationName <> ".View.Layout\n"
                 <> ", module Generated.Types\n"
                 <> ", module " <> applicationName <> ".Types\n"
-                <> ", module " <> applicationName <> ".View.Context\n"
                 <> ", module Application.Helper.View\n"
                 <> ") where\n"
                 <> "\n"
@@ -159,7 +158,6 @@ generateGenericApplication applicationName =
                 <> "import Generated.Types\n"
                 <> "import " <> applicationName <> ".Types\n"
                 <> "import " <> applicationName <> ".Routes ()\n"
-                <> "import " <> applicationName <> ".View.Context\n"
                 <> "import Application.Helper.View\n"
 
             welcomeControllerStaticHs =   
