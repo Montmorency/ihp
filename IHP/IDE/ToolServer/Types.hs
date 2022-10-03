@@ -24,14 +24,14 @@ data TablesController
     | DeleteTableAction { tableId :: Int, tableName :: Text }
     deriving (Eq, Show, Data)
 
-data ViewsController
-    = ViewsAction
-    | ShowViewAction { viewName :: Text }
-    | NewViewAction
-    | CreateViewAction
-    | EditViewAction { viewName :: Text, viewId :: Int }
-    | UpdateViewAction
-    | DeleteViewAction { viewId :: Int, viewName :: Text }
+data PGViewsController
+    = PGViewsAction
+    | ShowPGViewAction { viewName :: Text }
+    | NewPGViewAction
+    | CreatePGViewAction
+    | EditPGViewAction { viewName :: Text, viewId :: Int }
+    | UpdatePGViewAction
+    | DeletePGViewAction { viewId :: Int, viewName :: Text }
     deriving (Eq, Show, Data)
 
 data ColumnsController

@@ -1,9 +1,9 @@
-module IHP.IDE.SchemaDesigner.Controller.Views where
+module IHP.IDE.SchemaDesigner.Controller.PGViews where
 
 import IHP.ControllerPrelude
 import IHP.IDE.ToolServer.Types
 
-import IHP.IDE.SchemaDesigner.View.Views.New
+import IHP.IDE.SchemaDesigner.View.PGViews.New
 --import IHP.IDE.SchemaDesigner.View.Views.Show
 --import IHP.IDE.SchemaDesigner.View.Views.Index
 --import IHP.IDE.SchemaDesigner.View.Views.Edit
@@ -17,9 +17,9 @@ import IHP.IDE.SchemaDesigner.Controller.Columns (updateForeignKeyConstraint)
 import qualified IHP.IDE.SchemaDesigner.SchemaOperations as SchemaOperations
 
 
-instance Controller ViewsController where
+instance Controller PGViewsController where
     beforeAction = setLayout schemaDesignerLayout
 
-    action NewViewAction = do
+    action NewPGViewAction = do
         statements <- readSchema
-        render NewViewView { .. }
+        render NewPGViewView { .. }
