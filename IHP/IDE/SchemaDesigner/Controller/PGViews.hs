@@ -24,3 +24,16 @@ instance Controller PGViewsController where
         statements <- readSchema
         let queryText = "create your view query."
         render NewPGViewView { .. }
+
+    action CreatePGViewAction = do
+        statements <- readSchema
+        let tableName = param "pgViewName"
+        redirectTo TablesAction
+--        let validationResult = pgViewName |> validatePGView statements Nothing
+--        case validationResult of
+--            Failure message -> do
+--                setErrorMessage message
+--                redirectTo TablesAction
+--            Success -> do
+--                updateSchema (SchemaOperations.addView pgViewName)
+--                redirectTo ShowViewAction { .. }
