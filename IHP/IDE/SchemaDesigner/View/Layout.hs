@@ -552,6 +552,7 @@ renderObjectSelector statements activeObjectName = [hsx|
     </div>
     <div class="custom-menu menu-for-table shadow backdrop-blur" id="context-menu-object-root">
         <a href={NewTableAction}>Add Table</a>
+        <a href={NewViewAction}>Add View</a>
         <a href={NewEnumAction}>Add Enum</a>
     </div>
 |]
@@ -567,9 +568,19 @@ renderObjectSelector statements activeObjectName = [hsx|
 --        viewStatements :: [(Int, Statement)]
         viewStatements :: Html
         viewStatements =
-                  [hsx|<div class="d-flex pl-2">
-                             <h5>Views</h5>
-                       </div>
+                  [hsx|
+                      <div class="d-flex align-items-center pl-2">
+                      <h5>Views</h5>
+                      <div class="toolbox">
+                      <a
+                         href={NewViewAction}
+                         class="btn btn-link btn-add mr-1"
+                         data-toggle="tooltip"
+                         data-placement="bottom"
+                         title="Add View"
+                         >{addIcon}</a>
+                      </div>
+                      </div>
                       |]
 
 

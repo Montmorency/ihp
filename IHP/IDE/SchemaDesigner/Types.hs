@@ -94,7 +94,9 @@ data CreateView
   = CreateView { name :: Text
                , columns :: [Column]
                , constraints :: [Constraint]
+               , query :: Text
                }
+  deriving (Eq, Show)
 
 data Column = Column
     { name :: Text
@@ -114,7 +116,8 @@ data OnDelete
     | Cascade
     deriving (Show, Eq)
 
-data OnDeleteView = CascadeView | RestrictView
+data OnDeleteView = CascadeView | RestrictView deriving (Show, Eq)
+
 
 data ColumnGenerator
     = ColumnGenerator

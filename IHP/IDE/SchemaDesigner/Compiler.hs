@@ -23,7 +23,7 @@ compileSql statements = statements
 
 compileStatement :: Statement -> Text
 compileStatement (StatementCreateTable CreateTable { name, columns, primaryKeyConstraint, constraints }) = "CREATE TABLE " <> compileIdentifier name <> " (\n" <> intercalate ",\n" (map (\col -> "    " <> compileColumn primaryKeyConstraint col) columns <> maybe [] ((:[]) . indent) (compilePrimaryKeyConstraint primaryKeyConstraint) <> map (indent . compileConstraint) constraints) <> "\n);"
-compileStatement (StatementCreateView CreateView {name, columns, query}) = "CREATE VIEW" <> compileIdentifier name <> " (\n" <> ( map ("    " <> compileViewColumn) cols) <> "\n)" <> " as \n" <> query <> "\n;"
+compileStatement (StatementCreateView CreateView {name, columns, query}) = "CREATE VIEW" <> compileIdentifier name <> " (\n" <> intercalate ",\n" (map (\col -> "    " <> compileViewColumn col) columns) <> "\n)" <> " as \n" <> query <> "\n;"
 compileStatement CreateEnumType { name, values } = "CREATE TYPE " <> compileIdentifier name <> " AS ENUM (" <> intercalate ", " (values |> map TextExpression |> map compileExpression) <> ");"
 compileStatement CreateExtension { name, ifNotExists } = "CREATE EXTENSION " <> (if ifNotExists then "IF NOT EXISTS " else "") <> compileIdentifier name <> ";"
 compileStatement AddConstraint { tableName, constraint = UniqueConstraint { name = Nothing, columnNames } } = "ALTER TABLE " <> compileIdentifier tableName <> " ADD UNIQUE (" <> intercalate ", " columnNames <> ")" <> ";"
@@ -114,6 +114,12 @@ compileColumn primaryKeyConstraint Column { name, columnType, defaultValue, notN
                 | name == primaryKeyColumn -> Just "PRIMARY KEY"
                 | otherwise -> Nothing
             PrimaryKeyConstraint _ -> Nothing
+
+
+compileViewColumn :: Column -> Text
+compileViewColumn  Column { name, columnType, defaultValue, notNull, isUnique, generator } = compileIdentifier name
+
+
 
 compileDefaultValue :: Expression -> Text
 compileDefaultValue value = "DEFAULT " <> compileExpression value
