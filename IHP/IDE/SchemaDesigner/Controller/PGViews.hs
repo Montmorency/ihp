@@ -4,9 +4,9 @@ import IHP.ControllerPrelude
 import IHP.IDE.ToolServer.Types
 
 import IHP.IDE.SchemaDesigner.View.PGViews.New
---import IHP.IDE.SchemaDesigner.View.Views.Show
---import IHP.IDE.SchemaDesigner.View.Views.Index
---import IHP.IDE.SchemaDesigner.View.Views.Edit
+--import IHP.IDE.SchemaDesigner.View.PGViews.Show
+--import IHP.IDE.SchemaDesigner.View.PGViews.Index
+--import IHP.IDE.SchemaDesigner.View.PGViews.Edit
 
 import IHP.IDE.SchemaDesigner.Types
 import IHP.IDE.SchemaDesigner.View.Layout (findStatementByName, replace, schemaDesignerLayout)
@@ -22,4 +22,5 @@ instance Controller PGViewsController where
 
     action NewPGViewAction = do
         statements <- readSchema
+        let queryText = "create your view query."
         render NewPGViewView { .. }

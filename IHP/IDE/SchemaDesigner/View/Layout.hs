@@ -552,7 +552,7 @@ renderObjectSelector statements activeObjectName = [hsx|
     </div>
     <div class="custom-menu menu-for-table shadow backdrop-blur" id="context-menu-object-root">
         <a href={NewTableAction}>Add Table</a>
-        <a href={NewViewAction}>Add View</a>
+        <a href={NewPGViewAction}>Add Postgres View</a>
         <a href={NewEnumAction}>Add Enum</a>
     </div>
 |]
@@ -573,11 +573,11 @@ renderObjectSelector statements activeObjectName = [hsx|
                       <h5>Views</h5>
                       <div class="toolbox">
                       <a
-                         href={NewViewAction}
+                         href={NewPGViewAction}
                          class="btn btn-link btn-add mr-1"
                          data-toggle="tooltip"
                          data-placement="bottom"
-                         title="Add View"
+                         title="Add Postgres View"
                          >{addIcon}</a>
                       </div>
                       </div>

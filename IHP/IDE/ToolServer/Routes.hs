@@ -4,6 +4,7 @@ import IHP.IDE.ToolServer.Types
 
 instance AutoRoute SchemaController
 instance AutoRoute TablesController
+instance AutoRoute PGViewsController
 instance AutoRoute ColumnsController
 instance AutoRoute PoliciesController
 instance AutoRoute EnumsController
