@@ -11,6 +11,10 @@ data Statement
     =
     -- | CREATE TABLE name ( columns );
       StatementCreateTable { unsafeGetCreateTable :: CreateTable }
+    -- | CREATE VIEW name ( columns ) AS query;
+    | StatementCreateView { unsafeGetCreateView :: CreateView }
+    -- | DROP VIEW name [Cascade | Restrict];
+    | DropView { viewName :: Text , onDelete :: Maybe OnDeleteView}
     -- | CREATE TYPE name AS ENUM ( values );
     | CreateEnumType { name :: Text, values :: [Text] }
     -- | DROP TYPE name;
@@ -85,6 +89,13 @@ data CreateTable
       }
   deriving (Eq, Show)
 
+
+data CreateView
+  = CreateView { name :: Text
+               , columns :: [Column]
+               , constraints :: [Constraint]
+               }
+
 data Column = Column
     { name :: Text
     , columnType :: PostgresType
@@ -102,6 +113,8 @@ data OnDelete
     | SetDefault
     | Cascade
     deriving (Show, Eq)
+
+data OnDeleteView = CascadeView | RestrictView
 
 data ColumnGenerator
     = ColumnGenerator

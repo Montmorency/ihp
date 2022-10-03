@@ -23,6 +23,7 @@ compileSql statements = statements
 
 compileStatement :: Statement -> Text
 compileStatement (StatementCreateTable CreateTable { name, columns, primaryKeyConstraint, constraints }) = "CREATE TABLE " <> compileIdentifier name <> " (\n" <> intercalate ",\n" (map (\col -> "    " <> compileColumn primaryKeyConstraint col) columns <> maybe [] ((:[]) . indent) (compilePrimaryKeyConstraint primaryKeyConstraint) <> map (indent . compileConstraint) constraints) <> "\n);"
+compileStatement (StatementCreateView CreateView {name, columns, query}) = "CREATE VIEW" <> compileIdentifier name <> " (\n" <> ( map ("    " <> compileViewColumn) cols) <> "\n)" <> " as \n" <> query <> "\n;"
 compileStatement CreateEnumType { name, values } = "CREATE TYPE " <> compileIdentifier name <> " AS ENUM (" <> intercalate ", " (values |> map TextExpression |> map compileExpression) <> ");"
 compileStatement CreateExtension { name, ifNotExists } = "CREATE EXTENSION " <> (if ifNotExists then "IF NOT EXISTS " else "") <> compileIdentifier name <> ";"
 compileStatement AddConstraint { tableName, constraint = UniqueConstraint { name = Nothing, columnNames } } = "ALTER TABLE " <> compileIdentifier tableName <> " ADD UNIQUE (" <> intercalate ", " columnNames <> ")" <> ";"
@@ -164,6 +165,7 @@ compileExpressionWithOptionalParenthese expression = "(" <> compileExpression ex
 
 compareStatement (CreateEnumType {}) _ = LT
 compareStatement (StatementCreateTable CreateTable {}) (AddConstraint {}) = LT
+compareStatement (StatementCreateTable CreateTable {}) (StatementCreateView CreateView {}) = LT
 compareStatement (AddConstraint { constraint = a }) (AddConstraint { constraint = b }) = compare (get #name a) (get #name b)
 compareStatement (AddConstraint {}) _ = GT
 compareStatement _ _ = EQ

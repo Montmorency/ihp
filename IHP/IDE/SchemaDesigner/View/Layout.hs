@@ -545,6 +545,7 @@ renderObjectSelector statements activeObjectName = [hsx|
             </div>
         </div>
         {forEach tableStatements (\statement -> renderObject (snd statement) (fst statement))}
+        {viewStatements}
         {enums}
 
         <div class="text-muted context-menu-notice">Right click to open context menu</div>
@@ -562,6 +563,15 @@ renderObjectSelector statements activeObjectName = [hsx|
         tableStatements = statements |> filter \case
             (_, StatementCreateTable CreateTable {}) -> True
             otherwise -> False
+
+--        viewStatements :: [(Int, Statement)]
+        viewStatements :: Html
+        viewStatements =
+                  [hsx|<div class="d-flex pl-2">
+                             <h5>Views</h5>
+                       </div>
+                      |]
+
 
         enumStatements :: [(Int, Statement)]
         enumStatements = statements |> filter \case
