@@ -524,6 +524,8 @@ compileUpdate table@(CreateTable { name, columns }) =
             )
 
 
+--viewQuery >>= \(id, name) -> id |> fetch
+
 compilePGViewFromRowInstance :: (?schema :: Schema) => CreateView -> Text
 compilePGViewFromRowInstance pgView@(CreateView { name, columns, query }) = cs [i|
 instance FromRow #{modelName} where
@@ -531,7 +533,6 @@ instance FromRow #{modelName} where
 #{unsafeInit . indent . indent . unlines $ map columnBinding columnNames}
         let theRecord = #{modelName} #{intercalate " " (map compileField (dataFields table))}
         pure theRecord
-
 |]
 
 compileFromRowInstance :: (?schema :: Schema) => CreateTable -> Text

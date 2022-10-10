@@ -532,7 +532,6 @@ selectExpr = do
     symbol' "FROM"
     from <- expression
 
-
     let whereClause alias = do
             symbol' "WHERE"
             whereClause <- expression
