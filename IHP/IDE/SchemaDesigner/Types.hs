@@ -92,9 +92,8 @@ data CreateTable
 
 data CreateView
   = CreateView { name :: Text
-               , columns :: [Column]
-               , constraints :: [Constraint]
-               , query :: Text
+               , columns :: [Text]
+               , query :: Expression
                }
   deriving (Eq, Show)
 
@@ -271,6 +270,10 @@ data IndexType = Btree | Gin | Gist
 
 data IndexColumn
     = IndexColumn { column :: Expression, columnOrder :: [IndexColumnOrder] }
+    deriving (Eq, Show)
+
+data PGViewColumn
+    = PGViewColumn { column :: Expression, alias :: Maybe Text }
     deriving (Eq, Show)
 
 data IndexColumnOrder

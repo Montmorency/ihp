@@ -31,6 +31,13 @@ addTable tableName list = list <> [StatementCreateTable CreateTable
     , constraints = []
     }]
 
+-- | Creates a new PGView
+addPGView :: Text -> [Text] -> Expression -> Schema -> Schema
+addPGView pgViewName columns query list = list <> [StatementCreateView CreateView
+    { name = pgViewName
+    , columns = columns
+    , query = query
+    }]
 
 data AddColumnOptions = AddColumnOptions
     { tableName :: !Text
@@ -463,11 +470,11 @@ updateTable tableId tableName statements =
         |> map \case
             (StatementCreateTable table@(CreateTable { name })) | name == oldTableName -> StatementCreateTable (table { name = tableName })
             constraint@(AddConstraint { tableName = constraintTable, constraint = c }) | constraintTable == oldTableName -> (constraint :: Statement) { tableName, constraint = c { name = Text.replace oldTableName tableName <$> (get #name c) } }
-            index@(CreateIndex { tableName = indexTable, indexName }) | indexTable == oldTableName -> (index :: Statement) { tableName, indexName = Text.replace oldTableName tableName indexName } 
+            index@(CreateIndex { tableName = indexTable, indexName }) | indexTable == oldTableName -> (index :: Statement) { tableName, indexName = Text.replace oldTableName tableName indexName }
             rls@(EnableRowLevelSecurity { tableName = rlsTable }) | rlsTable == oldTableName -> (rls :: Statement) { tableName }
             policy@(CreatePolicy { tableName = policyTable, name }) | policyTable == oldTableName -> (policy :: Statement) { tableName, name = Text.replace oldTableName tableName name }
             trigger@(CreateTrigger { tableName = triggerTable, name }) | triggerTable == oldTableName -> (trigger :: Statement) { tableName, name = Text.replace oldTableName tableName name }
-            otherwise -> otherwise  
+            otherwise -> otherwise
 
 
 updatedAtTriggerName :: Text -> Text
@@ -503,7 +510,7 @@ addUpdatedAtTrigger tableName schema =
                 |> isJust
 
         setUpdatedAtToNowTrigger :: Statement
-        setUpdatedAtToNowTrigger = 
+        setUpdatedAtToNowTrigger =
             CreateFunction
                 { functionName = "set_updated_at_to_now"
                 , functionBody = "\n" <> [trimming|

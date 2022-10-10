@@ -116,6 +116,28 @@ createTable = do
 
     pure CreateTable { name, columns, primaryKeyConstraint, constraints }
 
+
+createPGView = do
+    lexeme "CREATE"
+    lexeme "VIEW"
+
+    -- parse VIEW name
+    name <- qualifiedIdentifier
+
+    -- user can specify column names as aliases (otherwise names are deduced from the query)
+    columns <- optional do
+                 between (char '(' >> space) (space >> char ')' >> space) (textExpr' `sepBy` (char ',' >> space))
+
+    let columnNames = case columns of
+            Nothing -> [] -- no aliases
+            Just columns -> columns --names deduced from query
+
+    lexeme "AS"
+    -- view query
+    query <- selectExpr
+
+    pure CreateView {name, columnNames, query}
+
 createEnumType = do
     lexeme "CREATE"
     lexeme "TYPE"
@@ -556,6 +578,13 @@ createIndex = do
         expression
     char ';'
     pure CreateIndex { indexName, unique, tableName, columns, whereClause, indexType }
+
+
+parsePGViewColumn = do
+    column <- expression
+    alias <- optional $ space *> lexeme "AS"
+    pure PGViewColumn { column, alias}
+
 
 parseIndexColumn = do
     column <- expression

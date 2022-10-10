@@ -21,14 +21,14 @@ instance View NewPGViewView where
     |]
         where
             modalContent = [hsx|
-                <form method="POST" action={CreatePGViewAction}>
+                <form method="POST" action={CreatePGViewAction} class="sql-repl">
                     <div class="form-group row">
                         <label class="col-sm-2 col-form-label">Name:</label>
                         <div class="col-sm-10">
                             <input id="nameInput" name="tableName" type="text" class="form-control" autofocus="autofocus"/>
                             <small class="text-muted">
-                                Use the plural form and underscores. E.g.: <code>projects_view</code>, <code>companies_view</code>, <code>user_reactions_view</code>
-                                and append _view.
+                                Use the plural form and underscores. E.g.: <code>projects_view</code>,a
+                                <code>companies_view</code>, <code>user_reactions_view</code>.
                             </small>
                         </div>
                      </div>
@@ -41,14 +41,15 @@ instance View NewPGViewView where
                             <div class="p-2 rounded my-2" style="background-color: #002B36; border: 1px solid #0B5163;">
                               <div class="query-editor" style="height:16px">{queryText}</div>
                             </div>
-
                             <small class="text-muted">
-                               Write the query <code> select * from films where genre='comedies'; </code> and the schema designer will generate the
-                               view statement.
+                               Write the view query:
+                               <p>
+                                 <code> select name, genre from films where genre='comedies'; </code>
+                               </p>
+                               and the schema designer will generate the view statement.
                             </small>
                         </div>
                      </div>
-
 
                     <div class="text-right">
                         <button type="submit" class="btn btn-primary">Create Postgres View</button>

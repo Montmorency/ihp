@@ -201,6 +201,19 @@ compileTypeAlias table@(CreateTable { name, columns }) =
                 |> map (\(tableName, columnName) -> "(QueryBuilder.QueryBuilder \"" <> tableName <> "\")")
                 |> unwords
 
+compilePGViewTypeAlias :: (?schema :: Schema) => CreateView -> Text
+compilePGViewTypeAlias pgView@(CreateViewTable { name, columns, query }) =
+        "type "
+        <> modelName
+        <> " = "
+        <> modelName
+        <> "' "
+--        <> unwords (map (haskellType table) (variableAttributes table))
+--        <> hasManyDefaults
+        <> "\n"
+    where
+        modelName = name --tableNameToModelName name
+
 primaryKeyTypeName :: Text -> Text
 primaryKeyTypeName name = "Id' " <> tshow name <> ""
 
@@ -219,6 +232,23 @@ compileData table@(CreateTable { name, columns }) =
         modelName = tableNameToModelName name
         typeArguments :: Text
         typeArguments = dataTypeArguments table |> unwords
+
+compilePGViewData :: (?schema :: Schema) => CreateView -> Text
+compilePGViewData pgView@(CreateView { name, columns, query }) =
+        "data " <> modelName <> "' " <> typeArguments
+        <> " = " <> modelName <> " {"
+        <>
+            pgView
+            |> pgViewDataFields
+            |> map (\(fieldName, fieldType) -> fieldName <> " :: " <> fieldType)
+            |> commaSep
+        <> "} deriving (Eq, Show)\n"
+        <> "instance InputValue " <> modelName <> " where inputValue = IHP.ModelSupport.recordToInputValue\n"
+    where
+        modelName = tableNameToModelName name
+        typeArguments :: Text
+        typeArguments = dataTypeArguments table |> unwords
+
 
 -- | Returns all the type arguments of the data structure for an entity
 dataTypeArguments :: (?schema :: Schema) => CreateTable -> [Text]
@@ -246,6 +276,23 @@ dataFields table@(CreateTable { name, columns }) = columnFields <> queryBuilderF
                 )
 
         queryBuilderFields = columnsReferencingTable name |> compileQueryBuilderFields
+
+-- no MetaBag on the view fields because we aren't supporting UPSERT on VIEWS.
+pgViewDataFields :: (?schema :: Schema) => CreateView -> [(Text, Text)]
+pgViewDataFields pgView@(CreateView { name, columns, query }) = columnFields -- <> queryBuilderFields
+    where
+        columnFields = columns |> map columnField
+
+        columnField column =
+            let fieldName = columnNameToFieldName (get #name column)
+            in
+                ( fieldName
+                , if isVariableAttribute table column
+                        then fieldName
+                        else haskellType table column
+                )
+--        queryBuilderFields = columnsReferencingTable name |> compileQueryBuilderFields
+
 
 compileQueryBuilderFields :: [(Text, Text)] -> [(Text, Text)]
 compileQueryBuilderFields columns = map compileQueryBuilderField columns
@@ -475,6 +522,17 @@ compileUpdate table@(CreateTable { name, columns }) =
                     "List.head <$> sqlQuery \"UPDATE " <> name <> " SET " <> updates <> " WHERE id = ? RETURNING " <> columnNames <> "\" (" <> bindings <> ")\n"
                 )
             )
+
+
+compilePGViewFromRowInstance :: (?schema :: Schema) => CreateView -> Text
+compilePGViewFromRowInstance pgView@(CreateView { name, columns, query }) = cs [i|
+instance FromRow #{modelName} where
+    fromRow = do
+#{unsafeInit . indent . indent . unlines $ map columnBinding columnNames}
+        let theRecord = #{modelName} #{intercalate " " (map compileField (dataFields table))}
+        pure theRecord
+
+|]
 
 compileFromRowInstance :: (?schema :: Schema) => CreateTable -> Text
 compileFromRowInstance table@(CreateTable { name, columns }) = cs [i|
