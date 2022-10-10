@@ -93,7 +93,7 @@ data CreateTable
 data CreateView
   = CreateView { name :: Text
                , columns :: [Text]
-               , query :: Expression
+               , query :: Text
                }
   deriving (Eq, Show)
 

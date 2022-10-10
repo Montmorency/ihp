@@ -23,8 +23,8 @@ compileSql statements = statements
 
 compileStatement :: Statement -> Text
 compileStatement (StatementCreateTable CreateTable { name, columns, primaryKeyConstraint, constraints }) = "CREATE TABLE " <> compileIdentifier name <> " (\n" <> intercalate ",\n" (map (\col -> "    " <> compileColumn primaryKeyConstraint col) columns <> maybe [] ((:[]) . indent) (compilePrimaryKeyConstraint primaryKeyConstraint) <> map (indent . compileConstraint) constraints) <> "\n);"
-compileStatement (StatementCreateView CreateView {name, [], query}) = "CREATE VIEW" <> compileIdentifier name <> " AS \n" <> query <> "\n;"
-compileStatement (StatementCreateView CreateView {name, columns, query}) = "CREATE VIEW" <> compileIdentifier name <> " (\n" <> intercalate ",\n" (map (\col -> "    " <> compileViewColumn col) columns) <> "\n)" <> " AS \n" <> query <> "\n;"
+compileStatement (StatementCreateView CreateView {name, columns, query}) | columns == []  = "CREATE VIEW" <> compileIdentifier name <> " AS \n" <> query <> "\n;"
+                                                                         | otherwise = "CREATE VIEW" <> compileIdentifier name <> " (\n" <> intercalate ",\n" (map (\col -> "    " <> compileViewColumn col) columns) <> "\n)" <> " AS \n" <> query <> "\n;"
 compileStatement CreateEnumType { name, values } = "CREATE TYPE " <> compileIdentifier name <> " AS ENUM (" <> intercalate ", " (values |> map TextExpression |> map compileExpression) <> ");"
 compileStatement CreateExtension { name, ifNotExists } = "CREATE EXTENSION " <> (if ifNotExists then "IF NOT EXISTS " else "") <> compileIdentifier name <> ";"
 compileStatement AddConstraint { tableName, constraint = UniqueConstraint { name = Nothing, columnNames } } = "ALTER TABLE " <> compileIdentifier tableName <> " ADD UNIQUE (" <> intercalate ", " columnNames <> ")" <> ";"
@@ -117,8 +117,9 @@ compileColumn primaryKeyConstraint Column { name, columnType, defaultValue, notN
             PrimaryKeyConstraint _ -> Nothing
 
 
-compileViewColumn :: Column -> Text
-compileViewColumn  Column { name, columnType, defaultValue, notNull, isUnique, generator } = compileIdentifier name
+compileViewColumn :: Text -> Text
+compileViewColumn = \x -> x
+--compileViewColumn  Column { name, columnType, defaultValue, notNull, isUnique, generator } = compileIdentifier name
 
 
 

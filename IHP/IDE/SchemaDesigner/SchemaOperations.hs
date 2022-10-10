@@ -32,7 +32,7 @@ addTable tableName list = list <> [StatementCreateTable CreateTable
     }]
 
 -- | Creates a new PGView
-addPGView :: Text -> [Text] -> Expression -> Schema -> Schema
+addPGView :: Text -> [Text] -> Text -> Schema -> Schema
 addPGView pgViewName columns query list = list <> [StatementCreateView CreateView
     { name = pgViewName
     , columns = columns
@@ -460,6 +460,13 @@ deleteTable tableName statements =
         CreatePolicy { tableName = policyTable }        | policyTable == tableName     -> False
         CreateTrigger { tableName = triggerTable }      | triggerTable == tableName    -> False
         otherwise -> True
+
+deletePGView :: Text -> Schema -> Schema
+deletePGView pgViewName statements =
+   statements
+   |> filter \case
+    StatementCreateView CreateView { name } | name == pgViewName -> False
+    otherwise -> True
 
 updateTable :: Int -> Text -> Schema -> Schema
 updateTable tableId tableName statements =

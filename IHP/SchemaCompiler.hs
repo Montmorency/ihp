@@ -202,7 +202,7 @@ compileTypeAlias table@(CreateTable { name, columns }) =
                 |> unwords
 
 compilePGViewTypeAlias :: (?schema :: Schema) => CreateView -> Text
-compilePGViewTypeAlias pgView@(CreateViewTable { name, columns, query }) =
+compilePGViewTypeAlias pgView@(CreateView { name, columns, query }) =
         "type "
         <> modelName
         <> " = "
@@ -238,16 +238,17 @@ compilePGViewData pgView@(CreateView { name, columns, query }) =
         "data " <> modelName <> "' " <> typeArguments
         <> " = " <> modelName <> " {"
         <>
-            pgView
-            |> pgViewDataFields
-            |> map (\(fieldName, fieldType) -> fieldName <> " :: " <> fieldType)
-            |> commaSep
+          (pgView
+             |> pgViewDataFields
+             |> map (\(fieldName, _) -> fieldName <> " :: " <> "Text")
+             |> commaSep)
         <> "} deriving (Eq, Show)\n"
         <> "instance InputValue " <> modelName <> " where inputValue = IHP.ModelSupport.recordToInputValue\n"
     where
-        modelName = tableNameToModelName name
+        modelName = name -- tableNameToModelName name
         typeArguments :: Text
-        typeArguments = dataTypeArguments table |> unwords
+        typeArguments =  (unwords . map (\x -> "Text ")) pgView.columns
+--        typeArguments = dataTypeArguments pgView |> unwords
 
 
 -- | Returns all the type arguments of the data structure for an entity
@@ -278,12 +279,13 @@ dataFields table@(CreateTable { name, columns }) = columnFields <> queryBuilderF
         queryBuilderFields = columnsReferencingTable name |> compileQueryBuilderFields
 
 -- no MetaBag on the view fields because we aren't supporting UPSERT on VIEWS.
-pgViewDataFields :: (?schema :: Schema) => CreateView -> [(Text, Text)]
-pgViewDataFields pgView@(CreateView { name, columns, query }) = columnFields -- <> queryBuilderFields
+pgViewDataFields :: (?schema :: Schema) => CreateView -> [(Text,Text)]
+pgViewDataFields pgView@(CreateView { name, columns, query }) = map (\x -> (x,"Text")) columnFields -- <> queryBuilderFields
     where
-        columnFields = columns |> map columnField
+        columnFields = columns
 
-        columnField column =
+-- |> map columnField
+{-        columnField column =
             let fieldName = columnNameToFieldName (get #name column)
             in
                 ( fieldName
@@ -291,6 +293,7 @@ pgViewDataFields pgView@(CreateView { name, columns, query }) = columnFields -- 
                         then fieldName
                         else haskellType table column
                 )
+-}
 --        queryBuilderFields = columnsReferencingTable name |> compileQueryBuilderFields
 
 
@@ -523,17 +526,20 @@ compileUpdate table@(CreateTable { name, columns }) =
                 )
             )
 
-
 --viewQuery >>= \(id, name) -> id |> fetch
 
 compilePGViewFromRowInstance :: (?schema :: Schema) => CreateView -> Text
 compilePGViewFromRowInstance pgView@(CreateView { name, columns, query }) = cs [i|
 instance FromRow #{modelName} where
     fromRow = do
-#{unsafeInit . indent . indent . unlines $ map columnBinding columnNames}
-        let theRecord = #{modelName} #{intercalate " " (map compileField (dataFields table))}
+#{unsafeInit . indent . indent . unlines $ map columnBinding columns}
+        let theRecord = #{modelName} #{intercalate " " (map compileField (pgViewDataFields pgView))}
         pure theRecord
 |]
+    where
+      modelName = name
+      columnBinding columnName = columnName <> " <- field"
+      compileField (fieldName, _) = fieldName
 
 compileFromRowInstance :: (?schema :: Schema) => CreateTable -> Text
 compileFromRowInstance table@(CreateTable { name, columns }) = cs [i|

@@ -125,18 +125,19 @@ createPGView = do
     name <- qualifiedIdentifier
 
     -- user can specify column names as aliases (otherwise names are deduced from the query)
-    columns <- optional do
-                 between (char '(' >> space) (space >> char ')' >> space) (textExpr' `sepBy` (char ',' >> space))
+    columnNames <- optional do
+        between (char '(' >> space) (space >> char ')' >> space) (textExpr' `sepBy` (char ',' >> space))
 
-    let columnNames = case columns of
-            Nothing -> [] -- no aliases
-            Just columns -> columns --names deduced from query
+    let columns = case columnNames of
+                      Nothing -> [] -- no aliases
+                      Just columns -> columns --names deduced from query
 
     lexeme "AS"
-    -- view query
-    query <- selectExpr
 
-    pure CreateView {name, columnNames, query}
+    -- view query
+    query <- selectViewExpr
+
+    pure CreateView {name, columns, query}
 
 createEnumType = do
     lexeme "CREATE"
@@ -545,12 +546,15 @@ selectExpr = do
     let implicitAs = do
             alias <- identifier
             whereClause (Just alias)
-
     whereClause Nothing <|> explicitAs <|> implicitAs
 
-
-
-
+selectViewExpr :: Parser Text
+selectViewExpr = do
+    lexeme "SELECT"
+    takeWhile1P Nothing (\c -> c /= ';')
+{--
+    columns <- expression `sepBy` (char ',' >> space)
+--}
 
 identifier :: Parser Text
 identifier = do

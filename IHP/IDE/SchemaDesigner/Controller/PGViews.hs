@@ -28,11 +28,18 @@ instance Controller PGViewsController where
     action CreatePGViewAction = do
         statements <- readSchema
         let pgViewName::Text = param "pgViewName"
-        let viewQuery::Text = param "query"
-        --let validationResults = tableNames |> map (validateTable statements Nothing)
-        -- case validationResult of ...
-        updateSchema (SchemaOperations.addPGView pgViewName)
+        let pgViewQuery::Text = param "query"
+        let columns = [] --(parseColumns viewQuery)
+--
+        updateSchema (SchemaOperations.addPGView pgViewName columns pgViewQuery)
+
         redirectTo TablesAction
+
+    action DeletePGViewAction { .. } = do
+        let pgViewName = param "pgViewName"
+        updateSchema (SchemaOperations.deletePGView pgViewName)
+        redirectTo TablesAction
+
 
 -- ensure all tables referenced in CREATE VIEW are in the schema.
 validatePGView :: [Statement] -> Maybe Text -> Validator Text
