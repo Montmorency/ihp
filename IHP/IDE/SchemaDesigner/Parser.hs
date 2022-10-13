@@ -24,6 +24,8 @@ import qualified Text.Megaparsec.Char.Lexer as Lexer
 import Data.Char
 import Control.Monad.Combinators.Expr
 import Data.Functor
+import Data.Map as Map
+
 
 schemaFilePath = "Application/Schema.sql"
 
@@ -39,6 +41,7 @@ parseSqlFile schemaFilePath = do
         Right r -> pure (Right r)
 
 type Parser = Parsec Void Text
+
 
 spaceConsumer :: Parser ()
 spaceConsumer = Lexer.space
@@ -117,7 +120,25 @@ createTable = do
     pure CreateTable { name, columns, primaryKeyConstraint, constraints }
 
 
-createPGView = do
+
+parsePGViewColumn = do
+    column <- expression
+    alias <- optional $ space *> lexeme "AS"
+    pure PGViewColumn { column, alias}
+
+
+-- IHP simplified BNF for View (not currently support [REPLACE], [TEMP | TEMPORARY] or view_option_name
+
+  -- CREATE VIEW name [ ( column_name [, ...] ) ] AS query
+
+-- query :: SELECT
+-- only postgresql supported option for view_option_name is `security_barrier`
+-- and we need to wait for version bump until RLS secured
+-- column_name :: An optional list of names to be used for columns of the view.
+-- If not given, the column names are deduced from the query.
+-- Not supporting VALUES command which will provide the columns and rows of the view.
+
+parsePGView = do
     lexeme "CREATE"
     lexeme "VIEW"
 
@@ -128,16 +149,110 @@ createPGView = do
     columnNames <- optional do
         between (char '(' >> space) (space >> char ')' >> space) (textExpr' `sepBy` (char ',' >> space))
 
-    let columns = case columnNames of
-                      Nothing -> [] -- no aliases
-                      Just columns -> columns --names deduced from query
 
     lexeme "AS"
 
-    -- view query
-    query <- selectViewExpr
+    query <- parsePGViewSelect
+
+    let columns = case columnNames of
+                      Nothing -> [] -- no aliases. names are deduced from query.
+                      Just columns -> columns -- column aliases
 
     pure CreateView {name, columns, query}
+
+-- To get a parse of a useful select view we need the columns, their types,
+-- and to infer columns from tables and joined tables.
+-- WITH sub_query_1 AS (), sub_query_2 AS ()...
+-- e.g.
+
+--BNF for select
+
+type Env = Map Text (Maybe Text)
+type SelectParser = ReaderT Env (Parsec Void Text)
+
+--join syntax
+--e.g.   join beds b1 on ...
+joinTableAlias :: Parser Text
+joinTableAlias = do
+    try $ space lexeme (some Char.letterChar)
+    symbol' "ON"
+
+
+pTableName :: SelectParser PGViewTable
+pTableName = do
+    pgTableName <- do
+        some Char.letterChar
+        space
+
+    pgTableAlias <- optional $ do
+        (some Char.letterChar)
+        space
+
+    pure PGViewTable {..}
+
+pJoinTables :: SelectParser PGViewTable
+pJoinTables = do
+    pgTableName <- do
+        some Char.letterChar
+        space
+    pgTableAlias <- optional do
+        (some Char.letterChar)
+        symbol' "on"
+    pure PGViewTable {..}
+
+joinExpr :: SelectParser
+joinExpr = do
+    lexeme "JOIN"
+    pgTableName
+    lexeme "ON"
+
+-- Here we need to do a parse of tables to get the
+-- all the 'active' tables that columns can refer to.
+parsePGViewSelectTables :: SelectParser [PGViewTable]
+parsePGViewSelect = do
+    optional do
+        lexeme "WITH"
+        between (char '(' >> space) (space >> char ')' >> space)
+    lexeme "SELECT"
+    manyTill (lexeme "FROM")
+    pTableName
+    optional pJoinTables
+    pure ([columns])
+
+
+pPGViewColumn :: SelectParser Text
+pPGViewColumn = takeWhile1P (Just "identifier") (\c -> isAlphaNum c || c == '_')
+
+pPGViewQualColumn :: SelectParser Text
+pPGViewQualColumn = do
+    takeWhile1P (Just "identifier") (\c -> isAlphaNum c || c == '_')
+
+-- Once we have a parse of the primary and join tables in the view (with optional table aliases)
+-- We can parse again and generate the postgresql typed view output_column(s) which
+-- are used to generate the haskell data types.
+-- The typing is handled like this:
+--   1) unqualified columns (w or w/o alias) refer to the primary table and their types are take from there.
+--   2) qualified columns (w or w/o alias) refer to a subtable if this is an (atomic table i.e. not a derived table)
+--      we take the type from there otherwise it is from another query and we need to recurse.
+--   3) the column is an expression and we have a map of standard functions to types.
+--      [rank, max, min, avg, sum, count] and infix operators '+', '-' (the return type of some of these arguments are polymorphic in their arguments
+--      so we either recurse on arguments or we require functions have an explicit type annotation?
+
+-- sub-select :: the sub-SELECT must be surrounded by parentheses, and an alias must be provided for it.
+
+parsePGViewSelectCols :: SelectParser [ViewColumn]
+parsePGViewSelectCols = do
+    optional do
+        lexeme "WITH"
+        between (char '(' >> space) (space >> char ')' >> space)
+    lexeme "SELECT"
+    viewColumns <- (pViewColumn <|> pViewQualColumn <|> pFunExpression) `sepBy` (char ',' >> space)
+    lexeme "FROM"
+
+typeCheckCols = do
+    parsePGViewSelectTables
+    parsePGViewSelectCols
+
 
 createEnumType = do
     lexeme "CREATE"
@@ -491,6 +606,19 @@ table = [
             name <- identifier
             pure $ \expr -> DotExpression expr name
 
+-- functionTable with input output types.
+functionTable = [ [ lexeme "count" parens --, ["any"], ["bigint"])
+                  , lexeme "sum" parens   --, ["smallint", "int", "bigint", "real", "double precision", "numeric", "interval", "money"], ["int -> bigint", "smallint -> bigint","bigint -> numeric"])
+                  , lexeme "max" parens   --, ["array","numeric","string", "date/time"] ["arg_type"])
+                  , lexeme "min" parens   --, ["array","numeric","string", "date/time"], ["arg_type"])
+                  , lexeme "avg" parens]   --, ["smallint","int","bigint","real","double precision","numeric","interval"])
+                ]
+
+infixFunctionTable = [ [  lexeme "+"
+                       ,  lexeme "-"
+                       ]
+                     ]
+
 -- | Parses a SQL expression
 --
 -- This parser makes use of makeExprParser as described in https://hackage.haskell.org/package/parser-combinators-1.2.0/docs/Control-Monad-Combinators-Expr.html
@@ -499,6 +627,16 @@ expression = do
     e <- makeExprParser term table <?> "expression"
     space
     pure e
+
+-- we want to parse and name
+functionExpression :: Parser FunExpression
+functionExpression = do
+    e <- makeExprParser term functionTable <?> "fun_expression"
+    alias <- optional $ do
+        symbol' "AS"
+    space
+    pure e
+
 
 varExpr :: Parser Expression
 varExpr = VarExpression <$> identifier
@@ -526,6 +664,7 @@ textExpr' = cs <$> do
             pure ""
     (try (char '\'' *> manyTill Lexer.charLiteral (char '\''))) <|> emptyByteString
 
+
 selectExpr :: Parser Expression
 selectExpr = do
     symbol' "SELECT"
@@ -548,13 +687,6 @@ selectExpr = do
             whereClause (Just alias)
     whereClause Nothing <|> explicitAs <|> implicitAs
 
-selectViewExpr :: Parser Text
-selectViewExpr = do
-    lexeme "SELECT"
-    takeWhile1P Nothing (\c -> c /= ';')
-{--
-    columns <- expression `sepBy` (char ',' >> space)
---}
 
 identifier :: Parser Text
 identifier = do
@@ -582,11 +714,6 @@ createIndex = do
     char ';'
     pure CreateIndex { indexName, unique, tableName, columns, whereClause, indexType }
 
-
-parsePGViewColumn = do
-    column <- expression
-    alias <- optional $ space *> lexeme "AS"
-    pure PGViewColumn { column, alias}
 
 
 parseIndexColumn = do
@@ -643,7 +770,8 @@ createTrigger = do
 
     name <- qualifiedIdentifier
     eventWhen <- (lexeme "AFTER" >> pure After) <|> (lexeme "BEFORE" >> pure Before) <|> (lexeme "INSTEAD OF" >> pure InsteadOf)
-    event <- (lexeme "INSERT" >> pure TriggerOnInsert) <|> (lexeme "UPDATE" >> pure TriggerOnUpdate) <|> (lexeme "DELETE" >> pure TriggerOnDelete) <|> (lexeme "TRUNCATE" >> pure TriggerOnTruncate)
+    event <- (lexeme "INSERT" >> pure TriggerOnInsert) <|> (lexeme "UPDATE" >> pure TriggerOnUpdate)
+             <|> (lexeme "DELETE" >> pure TriggerOnDelete) <|> (lexeme "TRUNCATE" >> pure TriggerOnTruncate)
 
     lexeme "ON"
     tableName <- qualifiedIdentifier

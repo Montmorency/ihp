@@ -22,7 +22,15 @@ instance Controller PGViewsController where
 
     action NewPGViewAction = do
         statements <- readSchema
-        let queryText = "create your view query."
+
+        let tableNames = statements |> mapMaybe \case
+                StatementCreateTable CreateTable { name } -> Just name
+                otherwise -> Nothing
+
+        let queryText = case headMay tableNames of
+                Just tableName -> "select * from " <> tableName
+                otherwise -> "No tables in database: create a table before creating a view."
+
         render NewPGViewView { .. }
 
     action CreatePGViewAction = do
@@ -30,9 +38,8 @@ instance Controller PGViewsController where
         let pgViewName::Text = param "pgViewName"
         let pgViewQuery::Text = param "query"
         let columns = [] --(parseColumns viewQuery)
---
-        updateSchema (SchemaOperations.addPGView pgViewName columns pgViewQuery)
 
+        updateSchema (SchemaOperations.addPGView pgViewName columns pgViewQuery)
         redirectTo TablesAction
 
     action DeletePGViewAction { .. } = do

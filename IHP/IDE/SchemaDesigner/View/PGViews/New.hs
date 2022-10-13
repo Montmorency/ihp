@@ -36,7 +36,6 @@ instance View NewPGViewView where
                     <div class="form-group row">
                         <label class="col-sm-2 col-form-label">Query:</label>
                         <div class="col-sm-10">
-                            <input id="nameInput" name="tableName" type="text" class="form-control" autofocus="autofocus"/>
                             <input type="hidden" name="query" value={queryText}/>
                             <div class="p-2 rounded my-2" style="background-color: #002B36; border: 1px solid #0B5163;">
                               <div class="query-editor" style="height:16px">{queryText}</div>

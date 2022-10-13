@@ -272,8 +272,12 @@ data IndexColumn
     = IndexColumn { column :: Expression, columnOrder :: [IndexColumnOrder] }
     deriving (Eq, Show)
 
+data PGViewTable
+    = PGViewTable {pgTableName :: Text, pgTableAlias :: Maybe Text}
+    deriving (Eq, Show)
+
 data PGViewColumn
-    = PGViewColumn { column :: Expression, alias :: Maybe Text }
+    = PGViewColumn { column :: Expression, alias :: Maybe Text, colType :: Text }
     deriving (Eq, Show)
 
 data IndexColumnOrder
