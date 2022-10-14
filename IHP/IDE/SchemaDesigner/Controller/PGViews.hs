@@ -35,11 +35,12 @@ instance Controller PGViewsController where
 
     action CreatePGViewAction = do
         statements <- readSchema
-        let pgViewName::Text = param "pgViewName"
-        let pgViewQuery::Text = param "query"
-        let columns = [] --(parseColumns viewQuery)
-
-        updateSchema (SchemaOperations.addPGView pgViewName columns pgViewQuery)
+        let pgViewName :: Text = param "pgViewName"
+        -- using query as param name because I think the styling requires it
+        -- for ACE editor maybe need to fix this in UI?
+        let pgViewColumns :: Text = param "columns"
+        let pgViewQuery :: Text = param "query"
+        updateSchema (SchemaOperations.addPGView pgViewName pgViewColumns pgViewQuery statements)
         redirectTo TablesAction
 
     action DeletePGViewAction { .. } = do

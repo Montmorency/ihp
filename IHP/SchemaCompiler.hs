@@ -212,7 +212,7 @@ compilePGViewTypeAlias pgView@(CreateView { name, columns, query }) =
 --        <> hasManyDefaults
         <> "\n"
     where
-        modelName = name --tableNameToModelName name
+        modelName = tableNameToModelName name
 
 primaryKeyTypeName :: Text -> Text
 primaryKeyTypeName name = "Id' " <> tshow name <> ""
@@ -280,21 +280,21 @@ dataFields table@(CreateTable { name, columns }) = columnFields <> queryBuilderF
 
 -- no MetaBag on the view fields because we aren't supporting UPSERT on VIEWS.
 pgViewDataFields :: (?schema :: Schema) => CreateView -> [(Text,Text)]
-pgViewDataFields pgView@(CreateView { name, columns, query }) = map (\x -> (x,"Text")) columnFields -- <> queryBuilderFields
+pgViewDataFields pgView@(CreateView { name, columns, query }) =  columnFields
     where
-        columnFields = columns
-
--- |> map columnField
-{-        columnField column =
-            let fieldName = columnNameToFieldName (get #name column)
+        columnFields = columns |> map columnField
+        columnField column =
+            let
+                fieldName = case (column.pgAlias) of
+                                Nothing -> columnNameToFieldName (column.pgColumn)
+                                Just alias -> columnNameToFieldName (alias)
+                fieldType = case (column.colType) of
+                                Nothing -> PText
+                                Just pType -> pType
             in
                 ( fieldName
-                , if isVariableAttribute table column
-                        then fieldName
-                        else haskellType table column
+                , actualType fieldType
                 )
--}
---        queryBuilderFields = columnsReferencingTable name |> compileQueryBuilderFields
 
 
 compileQueryBuilderFields :: [(Text, Text)] -> [(Text, Text)]
@@ -368,7 +368,7 @@ isVariableAttribute :: (?schema :: Schema) => CreateTable -> Column -> Bool
 isVariableAttribute = isRefCol
 
 
--- | Returns @True@ when the coluns is referencing another column via foreign key constraint
+-- | Returns @True@ when the column is referencing another column via foreign key constraint
 isRefCol :: (?schema :: Schema) => CreateTable -> Column -> Bool
 isRefCol table column = isJust (findForeignKeyConstraint table column)
 

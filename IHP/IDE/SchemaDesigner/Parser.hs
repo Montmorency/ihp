@@ -25,6 +25,7 @@ import Data.Char
 import Control.Monad.Combinators.Expr
 import Data.Functor
 import Data.Map as Map
+import Ormolu.Printer.Combinators (canUseBraces)
 
 
 schemaFilePath = "Application/Schema.sql"
@@ -57,9 +58,6 @@ symbol = Lexer.symbol spaceConsumer
 
 symbol' :: Text -> Parser Text
 symbol' = Lexer.symbol' spaceConsumer
-
-stringLiteral :: Parser String
-stringLiteral = char '\'' *> manyTill Lexer.charLiteral (char '\'')
 
 parseDDL :: Parser [Statement]
 parseDDL = optional space >> manyTill statement eof
@@ -149,7 +147,6 @@ parsePGView = do
     columnNames <- optional do
         between (char '(' >> space) (space >> char ')' >> space) (textExpr' `sepBy` (char ',' >> space))
 
-
     lexeme "AS"
 
     query <- parsePGViewSelect
@@ -160,99 +157,70 @@ parsePGView = do
 
     pure CreateView {name, columns, query}
 
+-- Here we need to do a parse of tables to get the
+-- all the 'active' tables that columns can refer to.
 -- To get a parse of a useful select view we need the columns, their types,
 -- and to infer columns from tables and joined tables.
 -- WITH sub_query_1 AS (), sub_query_2 AS ()...
--- e.g.
-
---BNF for select
 
 type Env = Map Text (Maybe Text)
 type SelectParser = ReaderT Env (Parsec Void Text)
 
---join syntax
---e.g.   join beds b1 on ...
-joinTableAlias :: Parser Text
-joinTableAlias = do
-    try $ space lexeme (some Char.letterChar)
-    symbol' "ON"
-
-
 pTableName :: SelectParser PGViewTable
 pTableName = do
-    pgTableName <- do
-        some Char.letterChar
-        space
+    pgTableName <- pPGName
 
     pgTableAlias <- optional $ do
-        (some Char.letterChar)
-        space
-
+        symbol' "AS"
+        pPGName
     pure PGViewTable {..}
 
-pJoinTables :: SelectParser PGViewTable
-pJoinTables = do
-    pgTableName <- do
-        some Char.letterChar
-        space
+pJoinTableName :: SelectParser PGViewTable
+pJoinTableName = do
+    pgTableName <- pPGName
     pgTableAlias <- optional do
-        (some Char.letterChar)
-        symbol' "on"
+        pPGName <* symbol' "ON"
     pure PGViewTable {..}
 
-joinExpr :: SelectParser
-joinExpr = do
+pJoinExpr :: SelectParser
+pJoinExpr = do
     lexeme "JOIN"
     pgTableName
     lexeme "ON"
 
--- Here we need to do a parse of tables to get the
--- all the 'active' tables that columns can refer to.
-parsePGViewSelectTables :: SelectParser [PGViewTable]
-parsePGViewSelect = do
-    optional do
-        lexeme "WITH"
-        between (char '(' >> space) (space >> char ')' >> space)
-    lexeme "SELECT"
-    manyTill (lexeme "FROM")
-    pTableName
-    optional pJoinTables
-    pure ([columns])
 
 
-pPGViewColumn :: SelectParser Text
-pPGViewColumn = takeWhile1P (Just "identifier") (\c -> isAlphaNum c || c == '_')
+pPGName :: Text -> Parser Text
+pPGName label = takeWhile1P (Just label) (\c -> isAlphaNum c || c == '_')
 
-pPGViewQualColumn :: SelectParser Text
+pPGViewQualColumn :: SelectParser PGViewColumn
 pPGViewQualColumn = do
-    takeWhile1P (Just "identifier") (\c -> isAlphaNum c || c == '_')
+    let colType = Nothing
+    takeWhile1P (Just "pgViewQualColumn") (\c -> isAlphaNum c || c == '_' || c == '.')
+    pure $ PGViewColumn {..}
 
--- Once we have a parse of the primary and join tables in the view (with optional table aliases)
--- We can parse again and generate the postgresql typed view output_column(s) which
--- are used to generate the haskell data types.
--- The typing is handled like this:
---   1) unqualified columns (w or w/o alias) refer to the primary table and their types are take from there.
---   2) qualified columns (w or w/o alias) refer to a subtable if this is an (atomic table i.e. not a derived table)
---      we take the type from there otherwise it is from another query and we need to recurse.
---   3) the column is an expression and we have a map of standard functions to types.
---      [rank, max, min, avg, sum, count] and infix operators '+', '-' (the return type of some of these arguments are polymorphic in their arguments
---      so we either recurse on arguments or we require functions have an explicit type annotation?
+pPGViewColumn :: SelectParser PGViewColumn
+pPGViewColumn = do
+    let colType = Nothing
+    pgColumn <- pPGName "pgViewColumn"
+    pgAlias <- optional $
+                  symbol' "AS"
+                  pPGName
+    pure $ PGViewColumn {..}
 
--- sub-select :: the sub-SELECT must be surrounded by parentheses, and an alias must be provided for it.
+pPGViewTable :: SelectParser PGViewTable
 
-parsePGViewSelectCols :: SelectParser [ViewColumn]
+--    viewColumns <- (pPGViewColumn <|> pPGViewQualColumn <|> pPGViewExpr) `sepBy` (char ',' >> space)
+parsePGViewSelectCols :: SelectParser [PGViewColumn]
 parsePGViewSelectCols = do
     optional do
         lexeme "WITH"
         between (char '(' >> space) (space >> char ')' >> space)
     lexeme "SELECT"
-    viewColumns <- (pViewColumn <|> pViewQualColumn <|> pFunExpression) `sepBy` (char ',' >> space)
+    viewColumns <- (pPGViewColumn <|> pPGViewQualColumn) `sepBy` (char ',' >> space)
     lexeme "FROM"
-
-typeCheckCols = do
-    parsePGViewSelectTables
-    parsePGViewSelectCols
-
+    viewTables <- pPGViewTable
+    char ';'
 
 createEnumType = do
     lexeme "CREATE"
@@ -610,6 +578,7 @@ table = [
 functionTable = [ [ lexeme "count" parens --, ["any"], ["bigint"])
                   , lexeme "sum" parens   --, ["smallint", "int", "bigint", "real", "double precision", "numeric", "interval", "money"], ["int -> bigint", "smallint -> bigint","bigint -> numeric"])
                   , lexeme "max" parens   --, ["array","numeric","string", "date/time"] ["arg_type"])
+                  , lexeme "cast" parens
                   , lexeme "min" parens   --, ["array","numeric","string", "date/time"], ["arg_type"])
                   , lexeme "avg" parens]   --, ["smallint","int","bigint","real","double precision","numeric","interval"])
                 ]
@@ -629,13 +598,13 @@ expression = do
     pure e
 
 -- we want to parse and name
-functionExpression :: Parser FunExpression
-functionExpression = do
-    e <- makeExprParser term functionTable <?> "fun_expression"
-    alias <- optional $ do
-        symbol' "AS"
-    space
-    pure e
+-- functionExpression :: Parser Expression
+-- functionExpression = do
+--     e <- makeExprParser term functionTable <?> "fun_expression"
+--     alias <- optional $ do
+--         symbol' "AS"
+--     space
+--     pure e
 
 
 varExpr :: Parser Expression

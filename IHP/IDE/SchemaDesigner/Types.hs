@@ -92,7 +92,7 @@ data CreateTable
 
 data CreateView
   = CreateView { name :: Text
-               , columns :: [Text]
+               , columns :: [PGViewColumn]
                , query :: Text
                }
   deriving (Eq, Show)
@@ -202,6 +202,11 @@ data Expression =
     | ConcatenationExpression Expression Expression -- ^ a || b
     deriving (Eq, Show)
 
+
+data FunExpression =
+      Count
+    |
+
 data Select = Select
     { columns :: [Expression]
     , from :: Expression
@@ -277,7 +282,10 @@ data PGViewTable
     deriving (Eq, Show)
 
 data PGViewColumn
-    = PGViewColumn { column :: Expression, alias :: Maybe Text, colType :: Text }
+    = PGViewColumn { pgColumn :: Text
+                   , pgAlias :: Maybe Text
+                   , colType :: Maybe PostgresType
+                   }
     deriving (Eq, Show)
 
 data IndexColumnOrder

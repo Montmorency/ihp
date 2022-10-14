@@ -32,12 +32,19 @@ addTable tableName list = list <> [StatementCreateTable CreateTable
     }]
 
 -- | Creates a new PGView
-addPGView :: Text -> [Text] -> Text -> Schema -> Schema
-addPGView pgViewName columns query list = list <> [StatementCreateView CreateView
-    { name = pgViewName
-    , columns = columns
-    , query = query
-    }]
+addPGView :: Text -> Text -> Text -> Schema -> Schema
+addPGView pgViewName pgViewColumns pgViewQuery schemaList = do
+      let tables = schemaList |> filter (\case
+                                             StatementCreateTable _ -> True
+                                             otherwise -> False
+                                        )
+-- generates typed columns
+      columns <- parseViewColumns tables query
+      schemaListlist <> [StatementCreateView CreateView
+                         { name = pgViewName
+                         , columns = pgViewcolumns
+                         , query = pgViewQuery
+                         }]
 
 data AddColumnOptions = AddColumnOptions
     { tableName :: !Text
