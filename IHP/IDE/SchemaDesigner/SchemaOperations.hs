@@ -10,7 +10,10 @@ import IHP.IDE.SchemaDesigner.Types
 import Data.Maybe (fromJust)
 import qualified Data.List as List
 import qualified Data.Text as Text
-
+import IHP.IDE.SchemaDesigner.Parser (parsePGView, parsePGViewSelectCols)
+import Control.Monad.Reader
+import Text.Megaparsec
+import qualified Data.Map as Map
 -- | A Schema.sql basically is just a list of sql DDL statements
 type Schema = [Statement]
 
@@ -33,18 +36,21 @@ addTable tableName list = list <> [StatementCreateTable CreateTable
 
 -- | Creates a new PGView
 addPGView :: Text -> Text -> Text -> Schema -> Schema
-addPGView pgViewName pgViewColumns pgViewQuery schemaList = do
+addPGView pgViewName columnNames pgViewQuery schemaList = do
       let tables = schemaList |> filter (\case
                                              StatementCreateTable _ -> True
                                              otherwise -> False
                                         )
--- generates typed columns
-      columns <- parseViewColumns tables query
-      schemaListlist <> [StatementCreateView CreateView
-                         { name = pgViewName
-                         , columns = pgViewcolumns
-                         , query = pgViewQuery
-                         }]
+      -- generates typed columns from the query
+      -- parses subqueries, joins, and expressions for types.
+      pgView :: CreateView <- fromMaybe (error "urk") $ parseMaybe (runReaderT (parsePGView tables) Map.empty) (cs pgViewQuery)
+      schemaList <> [StatementCreateView pgView]
+                     -- CreateView
+                     --    { name = pgViewName
+                     --    , columnNames = columnNames
+                     --    , typedColumns = typedColumns
+                     --    , viewQuery = pgViewQuery
+                     --    }]
 
 data AddColumnOptions = AddColumnOptions
     { tableName :: !Text

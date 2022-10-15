@@ -6,6 +6,8 @@ Copyright: (c) digitally induced GmbH, 2020
 module IHP.IDE.SchemaDesigner.Parser
 ( parseSchemaSql
 , parseSqlFile
+, parsePGView
+, parsePGViewSelectCols
 , schemaFilePath
 , parseDDL
 , expression
@@ -24,8 +26,8 @@ import qualified Text.Megaparsec.Char.Lexer as Lexer
 import Data.Char
 import Control.Monad.Combinators.Expr
 import Data.Functor
-import Data.Map as Map
-import Ormolu.Printer.Combinators (canUseBraces)
+import qualified Data.Map as Map
+import Control.Monad.Reader
 
 
 schemaFilePath = "Application/Schema.sql"
@@ -50,6 +52,7 @@ spaceConsumer = Lexer.space
     (Lexer.skipLineComment "//")
     (Lexer.skipBlockComment "/*" "*/")
 
+
 lexeme :: Parser a -> Parser a
 lexeme = Lexer.lexeme spaceConsumer
 
@@ -58,6 +61,23 @@ symbol = Lexer.symbol spaceConsumer
 
 symbol' :: Text -> Parser Text
 symbol' = Lexer.symbol' spaceConsumer
+
+lspaceConsumer :: SelectParser ()
+lspaceConsumer = Lexer.space
+    space1
+    (Lexer.skipLineComment "//")
+    (Lexer.skipBlockComment "/*" "*/")
+
+
+llexeme :: SelectParser a -> SelectParser a
+llexeme = Lexer.lexeme lspaceConsumer
+
+lsymbol :: Text -> SelectParser Text
+lsymbol =  Lexer.symbol lspaceConsumer
+
+lsymbol' :: Text -> SelectParser Text
+lsymbol' = Lexer.symbol' lspaceConsumer
+
 
 parseDDL :: Parser [Statement]
 parseDDL = optional space >> manyTill statement eof
@@ -118,45 +138,6 @@ createTable = do
     pure CreateTable { name, columns, primaryKeyConstraint, constraints }
 
 
-
-parsePGViewColumn = do
-    column <- expression
-    alias <- optional $ space *> lexeme "AS"
-    pure PGViewColumn { column, alias}
-
-
--- IHP simplified BNF for View (not currently support [REPLACE], [TEMP | TEMPORARY] or view_option_name
-
-  -- CREATE VIEW name [ ( column_name [, ...] ) ] AS query
-
--- query :: SELECT
--- only postgresql supported option for view_option_name is `security_barrier`
--- and we need to wait for version bump until RLS secured
--- column_name :: An optional list of names to be used for columns of the view.
--- If not given, the column names are deduced from the query.
--- Not supporting VALUES command which will provide the columns and rows of the view.
-
-parsePGView = do
-    lexeme "CREATE"
-    lexeme "VIEW"
-
-    -- parse VIEW name
-    name <- qualifiedIdentifier
-
-    -- user can specify column names as aliases (otherwise names are deduced from the query)
-    columnNames <- optional do
-        between (char '(' >> space) (space >> char ')' >> space) (textExpr' `sepBy` (char ',' >> space))
-
-    lexeme "AS"
-
-    query <- parsePGViewSelect
-
-    let columns = case columnNames of
-                      Nothing -> [] -- no aliases. names are deduced from query.
-                      Just columns -> columns -- column aliases
-
-    pure CreateView {name, columns, query}
-
 -- Here we need to do a parse of tables to get the
 -- all the 'active' tables that columns can refer to.
 -- To get a parse of a useful select view we need the columns, their types,
@@ -168,59 +149,80 @@ type SelectParser = ReaderT Env (Parsec Void Text)
 
 pTableName :: SelectParser PGViewTable
 pTableName = do
-    pgTableName <- pPGName
+    pgTableName <- pPGName "pgTableName"
 
     pgTableAlias <- optional $ do
-        symbol' "AS"
-        pPGName
+        lsymbol' "AS"
+        pPGName "pgTableAlias"
     pure PGViewTable {..}
 
 pJoinTableName :: SelectParser PGViewTable
 pJoinTableName = do
-    pgTableName <- pPGName
+    pgTableName <- pPGName "joinTableName"
     pgTableAlias <- optional do
-        pPGName <* symbol' "ON"
+        pPGName "pgViewTableAlias" <* lsymbol' "ON"
     pure PGViewTable {..}
 
-pJoinExpr :: SelectParser
-pJoinExpr = do
-    lexeme "JOIN"
-    pgTableName
-    lexeme "ON"
-
-
-
-pPGName :: Text -> Parser Text
+pPGName :: String -> SelectParser Text
 pPGName label = takeWhile1P (Just label) (\c -> isAlphaNum c || c == '_')
 
+--parse tables with e.g. users.column_name or b1.column_name
 pPGViewQualColumn :: SelectParser PGViewColumn
 pPGViewQualColumn = do
     let colType = Nothing
-    takeWhile1P (Just "pgViewQualColumn") (\c -> isAlphaNum c || c == '_' || c == '.')
+    pgColumn <- takeWhile1P (Just "pgViewQualColumn") (\c -> isAlphaNum c || c == '_' || c == '.')
+    pgAlias <- optional $ do
+                  lsymbol' "AS"
+                  pPGName "viewColumnAlias"
     pure $ PGViewColumn {..}
 
 pPGViewColumn :: SelectParser PGViewColumn
 pPGViewColumn = do
     let colType = Nothing
     pgColumn <- pPGName "pgViewColumn"
-    pgAlias <- optional $
-                  symbol' "AS"
-                  pPGName
+    pgAlias <- optional $ do
+                  lsymbol' "AS"
+                  pPGName "viewColumnAlias"
     pure $ PGViewColumn {..}
 
-pPGViewTable :: SelectParser PGViewTable
-
---    viewColumns <- (pPGViewColumn <|> pPGViewQualColumn <|> pPGViewExpr) `sepBy` (char ',' >> space)
+--parse cols, aliased cols, and expressions
 parsePGViewSelectCols :: SelectParser [PGViewColumn]
-parsePGViewSelectCols = do
-    optional do
-        lexeme "WITH"
-        between (char '(' >> space) (space >> char ')' >> space)
-    lexeme "SELECT"
-    viewColumns <- (pPGViewColumn <|> pPGViewQualColumn) `sepBy` (char ',' >> space)
-    lexeme "FROM"
-    viewTables <- pPGViewTable
-    char ';'
+parsePGViewSelectCols = (pPGViewColumn <|> pPGViewQualColumn) `sepBy` (char ',' >> space)
+
+-- IHP simplified BNF for View (not currently support [REPLACE], [TEMP | TEMPORARY] or view_option_name
+-- CREATE VIEW name [ ( column_name [, ...] ) ] AS query
+-- query :: SELECT
+-- only postgresql supported option for view_option_name is `security_barrier`
+-- and we need to wait for version bump until RLS secured
+-- column_name :: An optional list of names to be used for columns of the view.
+-- If not given, the column names are deduced from the query.
+-- Not supporting VALUES command which will provide the columns and rows of the view.
+parsePGView :: [Statement] -> SelectParser [CreateView]
+parsePGView tables = do
+--    optional do
+--        llexeme "WITH"
+--        between (char '(' >> space) (space >> char ')' >> space)
+
+    lsymbol' "CREATE"
+    lsymbol' "VIEW"
+
+    -- parse VIEW name
+    name <- pPGName "viewName"
+
+    -- user can specify column names as aliases (otherwise names are deduced from the query)
+    maybeColumnNames <- optional do
+        between (char '(' >> space) (space >> char ')' >> space) ((pPGName "columnName") `sepBy` (char ',' >> space))
+
+    lsymbol' "AS"
+    let viewQuery = "select * from tables;"
+    typedColumns <- parsePGViewSelectCols  --typecheck columns
+
+    let columnNames = case maybeColumnNames of
+                          Nothing -> [] -- no aliases. names so are parsed from query.
+                          Just columns -> columns -- list of column aliases
+
+    pure [CreateView {name, columnNames, typedColumns, viewQuery}]
+
 
 createEnumType = do
     lexeme "CREATE"
@@ -575,18 +577,20 @@ table = [
             pure $ \expr -> DotExpression expr name
 
 -- functionTable with input output types.
-functionTable = [ [ lexeme "count" parens --, ["any"], ["bigint"])
-                  , lexeme "sum" parens   --, ["smallint", "int", "bigint", "real", "double precision", "numeric", "interval", "money"], ["int -> bigint", "smallint -> bigint","bigint -> numeric"])
-                  , lexeme "max" parens   --, ["array","numeric","string", "date/time"] ["arg_type"])
-                  , lexeme "cast" parens
-                  , lexeme "min" parens   --, ["array","numeric","string", "date/time"], ["arg_type"])
-                  , lexeme "avg" parens]   --, ["smallint","int","bigint","real","double precision","numeric","interval"])
-                ]
+-- functionTable = [ [ lexeme "count" parens --, ["any"], ["bigint"])
+--                   , lexeme "sum" parens   --, ["smallint", "int", "bigint", "real", "double precision", "numeric", "interval", "money"], ["int -> bigint", "smallint -> bigint","bigint -> numeric"])
+--                   , lexeme "max" parens   --, ["array","numeric","string", "date/time"] ["arg_type"])
+--                   , lexeme "cast" parens
+--                   , lexeme "min" parens   --, ["array","numeric","string", "date/time"], ["arg_type"])
+--                   , lexeme "avg" parens]   --, ["smallint","int","bigint","real","double precision","numeric","interval"])
+--                 ]
+--   where
+--     parens f = between (char '(' >> space) (char ')' >> space) f
 
-infixFunctionTable = [ [  lexeme "+"
-                       ,  lexeme "-"
-                       ]
-                     ]
+-- infixFunctionTable = [ [  lexeme "+"
+--                        ,  lexeme "-"
+--                        ]
+--                      ]
 
 -- | Parses a SQL expression
 --

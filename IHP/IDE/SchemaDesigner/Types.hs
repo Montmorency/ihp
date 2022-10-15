@@ -90,12 +90,13 @@ data CreateTable
   deriving (Eq, Show)
 
 
-data CreateView
-  = CreateView { name :: Text
-               , columns :: [PGViewColumn]
-               , query :: Text
-               }
-  deriving (Eq, Show)
+data CreateView = CreateView
+                  { name :: Text
+                  , columnNames :: [Text]
+                  , typedColumns :: [PGViewColumn]
+                  , viewQuery :: Text
+                  }
+                  deriving (Eq, Show)
 
 data Column = Column
     { name :: Text
@@ -204,8 +205,13 @@ data Expression =
 
 
 data FunExpression =
-      Count
-    |
+      PCount
+    | PMax
+    | PMin
+    | PAvg
+    | PRank
+    deriving (Eq, Show)
+
 
 data Select = Select
     { columns :: [Expression]

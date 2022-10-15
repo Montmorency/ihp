@@ -202,7 +202,7 @@ compileTypeAlias table@(CreateTable { name, columns }) =
                 |> unwords
 
 compilePGViewTypeAlias :: (?schema :: Schema) => CreateView -> Text
-compilePGViewTypeAlias pgView@(CreateView { name, columns, query }) =
+compilePGViewTypeAlias pgView@(CreateView { name, columnNames, typedColumns, viewQuery }) =
         "type "
         <> modelName
         <> " = "
@@ -234,7 +234,7 @@ compileData table@(CreateTable { name, columns }) =
         typeArguments = dataTypeArguments table |> unwords
 
 compilePGViewData :: (?schema :: Schema) => CreateView -> Text
-compilePGViewData pgView@(CreateView { name, columns, query }) =
+compilePGViewData pgView@(CreateView { name, columnNames, typedColumns, viewQuery }) =
         "data " <> modelName <> "' " <> typeArguments
         <> " = " <> modelName <> " {"
         <>
@@ -247,7 +247,7 @@ compilePGViewData pgView@(CreateView { name, columns, query }) =
     where
         modelName = name -- tableNameToModelName name
         typeArguments :: Text
-        typeArguments =  (unwords . map (\x -> "Text ")) pgView.columns
+        typeArguments =  (unwords . map (\x -> "Text ")) pgView.columnNames
 --        typeArguments = dataTypeArguments pgView |> unwords
 
 
@@ -279,10 +279,10 @@ dataFields table@(CreateTable { name, columns }) = columnFields <> queryBuilderF
         queryBuilderFields = columnsReferencingTable name |> compileQueryBuilderFields
 
 -- no MetaBag on the view fields because we aren't supporting UPSERT on VIEWS.
-pgViewDataFields :: (?schema :: Schema) => CreateView -> [(Text,Text)]
-pgViewDataFields pgView@(CreateView { name, columns, query }) =  columnFields
+pgViewDataFields :: (?schema :: Schema) => CreateView -> [(Text,PostgresType)]
+pgViewDataFields pgView@(CreateView { name, columnNames, typedColumns, viewQuery }) =  columnFields
     where
-        columnFields = columns |> map columnField
+        columnFields = typedColumns |> map columnField
         columnField column =
             let
                 fieldName = case (column.pgAlias) of
@@ -293,8 +293,13 @@ pgViewDataFields pgView@(CreateView { name, columns, query }) =  columnFields
                                 Just pType -> pType
             in
                 ( fieldName
-                , actualType fieldType
+                , fieldType
                 )
+--        actualType =
+--                case findForeignKeyConstraint table column of
+--                    Just (ForeignKeyConstraint { referenceTable }) -> "(" <> primaryKeyTypeName referenceTable <> ")"
+--                    _ -> atomicType columnType
+
 
 
 compileQueryBuilderFields :: [(Text, Text)] -> [(Text, Text)]
@@ -529,10 +534,10 @@ compileUpdate table@(CreateTable { name, columns }) =
 --viewQuery >>= \(id, name) -> id |> fetch
 
 compilePGViewFromRowInstance :: (?schema :: Schema) => CreateView -> Text
-compilePGViewFromRowInstance pgView@(CreateView { name, columns, query }) = cs [i|
+compilePGViewFromRowInstance pgView@(CreateView { name, columnNames, typedColumns, viewQuery }) = cs [i|
 instance FromRow #{modelName} where
     fromRow = do
-#{unsafeInit . indent . indent . unlines $ map columnBinding columns}
+#{unsafeInit . indent . indent . unlines $ map columnBinding columnNames}
         let theRecord = #{modelName} #{intercalate " " (map compileField (pgViewDataFields pgView))}
         pure theRecord
 |]

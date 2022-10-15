@@ -40,7 +40,7 @@ instance Controller PGViewsController where
         -- for ACE editor maybe need to fix this in UI?
         let pgViewColumns :: Text = param "columns"
         let pgViewQuery :: Text = param "query"
-        updateSchema (SchemaOperations.addPGView pgViewName pgViewColumns pgViewQuery statements)
+        updateSchema (SchemaOperations.addPGView pgViewName pgViewColumns pgViewQuery)
         redirectTo TablesAction
 
     action DeletePGViewAction { .. } = do
