@@ -40,6 +40,13 @@ instance Controller PGViewsController where
         -- for ACE editor maybe need to fix this in UI?
         let pgViewColumns :: Text = param "columns"
         let pgViewQuery :: Text = param "query"
+        let tables = schemaList |> filter (\case
+                                                  StatementCreateTable _ -> True
+                                                  otherwise -> False
+                                          )
+        let viewQuery = "CREATE VIEW " <> pgViewName <> " AS\n" <> pgViewQuery
+        parseTest $ (runReaderT (parsePGView tables) Map.empty) (cs viewQuery)
+
         updateSchema (SchemaOperations.addPGView pgViewName pgViewColumns pgViewQuery)
         redirectTo TablesAction
 

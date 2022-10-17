@@ -187,8 +187,19 @@ pPGViewColumn = do
 
 --parse cols, aliased cols, and expressions
 parsePGViewSelectCols :: SelectParser [PGViewColumn]
-parsePGViewSelectCols = (pPGViewColumn <|> pPGViewQualColumn) `sepBy` (char ',' >> space)
-
+parsePGViewSelectCols = do
+    llexeme "SELECT"
+    pgCols <- expression `sepBy` (char ',' >> space)
+    joinTables <- optional $ pJoinTables
+    mapM (\(PGViewColumn pgCol pgAlias _ ) -> do
+                 colType <- mapPgColToTable(pgCol) colName
+                 PGViewColumn pgCol pgAlias (Just colType)) pgCols
+--    where
+--      mapPGColToTable pgCol = do
+--          ParseTypeCast ?
+--          TableName -> do
+--          DotExpression -> do
+--          FunExpression -> do
 -- IHP simplified BNF for View (not currently support [REPLACE], [TEMP | TEMPORARY] or view_option_name
 -- CREATE VIEW name [ ( column_name [, ...] ) ] AS query
 -- query :: SELECT
@@ -214,11 +225,10 @@ parsePGView tables = do
         between (char '(' >> space) (space >> char ')' >> space) ((pPGName "columnName") `sepBy` (char ',' >> space))
 
     lsymbol' "AS"
-    let viewQuery = "select * from tables;"
-    typedColumns <- parsePGViewSelectCols  --typecheck columns
-
+    viewQuery <- selectExpr
+    typedColumns <- parsePGViewSelectCols viewQuery
     let columnNames = case maybeColumnNames of
-                          Nothing -> [] -- no aliases. names so are parsed from query.
+                          Nothing -> [] -- no aliases. so names are parsed from query.
                           Just columns -> columns -- list of column aliases
 
     pure [CreateView {name, columnNames, typedColumns, viewQuery}]
@@ -543,7 +553,6 @@ term = parens expression <|> try callExpr <|> try doubleExpr <|> try intExpr <|>
 table = [
             [ binary  "<>"  NotEqExpression
             , binary "="  EqExpression
-
             , binary "<=" LessThanOrEqualToExpression
             , binary "<"  LessThanExpression
             , binary ">="  GreaterThanOrEqualToExpression

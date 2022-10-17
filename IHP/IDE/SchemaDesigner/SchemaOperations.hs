@@ -43,7 +43,9 @@ addPGView pgViewName columnNames pgViewQuery schemaList = do
                                         )
       -- generates typed columns from the query
       -- parses subqueries, joins, and expressions for types.
-      pgView :: CreateView <- fromMaybe (error "urk") $ parseMaybe (runReaderT (parsePGView tables) Map.empty) (cs pgViewQuery)
+      pgView :: CreateView <- fromMaybe (error "urk: error parsing in addPGView.") $ parseMaybe (runReaderT (parsePGView tables) Map.empty) (cs pgViewQuery)
+      let viewQuery = "CREATE VIEW " <> pgViewName <> " AS\n" <> pgViewQuery
+--      pgView :: CreateView <- parseTest (runReaderT (parsePGView tables) Map.empty) (cs pgViewQuery)
       schemaList <> [StatementCreateView pgView]
                      -- CreateView
                      --    { name = pgViewName

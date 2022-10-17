@@ -217,6 +217,7 @@ compilePGViewTypeAlias pgView@(CreateView { name, columnNames, typedColumns, vie
 primaryKeyTypeName :: Text -> Text
 primaryKeyTypeName name = "Id' " <> tshow name <> ""
 
+
 compileData :: (?schema :: Schema) => CreateTable -> Text
 compileData table@(CreateTable { name, columns }) =
         "data " <> modelName <> "' " <> typeArguments
