@@ -225,7 +225,8 @@ parsePGView tables = do
         between (char '(' >> space) (space >> char ')' >> space) ((pPGName "columnName") `sepBy` (char ',' >> space))
 
     lsymbol' "AS"
-    viewQuery <- selectExpr
+    --viewQuery <- selectExpr
+    viewQuery <- takeRest
     typedColumns <- parsePGViewSelectCols viewQuery
     let columnNames = case maybeColumnNames of
                           Nothing -> [] -- no aliases. so names are parsed from query.
@@ -233,6 +234,17 @@ parsePGView tables = do
 
     pure [CreateView {name, columnNames, typedColumns, viewQuery}]
 
+type TableName = Text
+type ColumnName = Text
+lookup :: [Statement] -> TableName -> ColumnName -> Maybe PostgresType
+lookup (x:xs) tableName colName | (name x) == tableName =  lookupCol (columns x) columnName
+                                | otherwise = lookup xs tableName colName 
+lookup [] _ _ = Nothing
+
+lookupCol :: [Column] -> ColumnName -> Maybe PostgresType
+lookupCol (x:xs) colName | (name x) == colName =  Just (colType x)
+                         | otherwise = lookupCol xs colName
+lookupCol [] _ = Nothing
 
 createEnumType = do
     lexeme "CREATE"
