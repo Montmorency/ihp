@@ -185,12 +185,21 @@ pPGViewColumn = do
                   pPGName "viewColumnAlias"
     pure $ PGViewColumn {..}
 
+
+    ["INNER"] "JOIN"
+<|> "LEFT"  ["OUTER"] "JOIN" 
+<|> "RIGHT" ["OUTER"] "JOIN" 
+<|> "FULL"  ["OUTER"] "JOIN" 
+<|> "CROSS" "JOIN"
+
+
 --parse cols, aliased cols, and expressions
 parsePGViewSelectCols :: SelectParser [PGViewColumn]
 parsePGViewSelectCols = do
     llexeme "SELECT"
     pgCols <- expression `sepBy` (char ',' >> space)
     joinTables <- optional $ pJoinTables
+
     mapM (\(PGViewColumn pgCol pgAlias _ ) -> do
                  colType <- mapPgColToTable(pgCol) colName
                  PGViewColumn pgCol pgAlias (Just colType)) pgCols
