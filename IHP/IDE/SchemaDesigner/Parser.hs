@@ -29,6 +29,7 @@ import Control.Monad.Combinators.Expr
 import Data.Functor
 import qualified Data.Map as Map
 import Control.Monad.Reader
+import IHP.IDE.SchemaDesigner.Types (PostgresType)
 
 
 schemaFilePath = "Application/Schema.sql"
@@ -144,6 +145,15 @@ createTable = do
 -- To get a parse of a useful select view we need the columns, their types,
 -- and to infer columns from tables and joined tables.
 -- WITH sub_query_1 AS (), sub_query_2 AS ()...
+-- IHP simplified BNF for View (not currently support [REPLACE], [TEMP | TEMPORARY] or view_option_name
+
+-- CREATE VIEW name [ ( column_name [, ...] ) ] AS query
+-- query :: SELECT
+-- only postgresql supported option for view_option_name is `security_barrier`
+-- and we need to wait for version bump until RLS secured
+-- column_name :: An optional list of names to be used for columns of the view.
+-- If not given, the column names are deduced from the query.
+-- Not supporting VALUES command which will provide the columns and rows of the view.
 
 type Env = Map Text (Maybe Text)
 type SelectParser = ReaderT Env (Parsec Void Text)
@@ -195,29 +205,30 @@ pPGViewColumn = do
 
 
 --parse cols, aliased cols, and expressions
+
+--mapPGColToTable :: _ -> PostgresType
+mapPGColToTable TypeCastExpression expr txt = sqlType txt
+--    VarExpression txt -> do
+--    CallExpression txt -> do
+--    DotExpression expr text -> do
+--    _ -> error "select col not implemented"
+
+
 parsePGViewSelectCols :: SelectParser [PGViewColumn]
 parsePGViewSelectCols = do
     llexeme "SELECT"
+
+    --parse columns with aliases
     pgCols <- expression `sepBy` (char ',' >> space)
+
+    --parse from_items with aliases
     joinTables <- optional $ pJoinTables
 
+-- typing the untyped columns.
     mapM (\(PGViewColumn pgCol pgAlias _ ) -> do
                  colType <- mapPgColToTable(pgCol) colName
                  PGViewColumn pgCol pgAlias (Just colType)) pgCols
---    where
---      mapPGColToTable pgCol = do
---          ParseTypeCast ?
---          TableName -> do
---          DotExpression -> do
---          FunExpression -> do
--- IHP simplified BNF for View (not currently support [REPLACE], [TEMP | TEMPORARY] or view_option_name
--- CREATE VIEW name [ ( column_name [, ...] ) ] AS query
--- query :: SELECT
--- only postgresql supported option for view_option_name is `security_barrier`
--- and we need to wait for version bump until RLS secured
--- column_name :: An optional list of names to be used for columns of the view.
--- If not given, the column names are deduced from the query.
--- Not supporting VALUES command which will provide the columns and rows of the view.
+
 parsePGView :: [Statement] -> SelectParser [CreateView]
 parsePGView tables = do
 --    optional do
@@ -235,7 +246,6 @@ parsePGView tables = do
         between (char '(' >> space) (space >> char ')' >> space) ((pPGName "columnName") `sepBy` (char ',' >> space))
 
     lsymbol' "AS"
-    --viewQuery <- selectExpr
     viewQuery <- takeRest
     typedColumns <- parsePGViewSelectCols viewQuery
     let columnNames = case maybeColumnNames of
@@ -246,15 +256,18 @@ parsePGView tables = do
 
 type TableName = Text
 type ColumnName = Text
-lookup :: [Statement] -> TableName -> ColumnName -> Maybe PostgresType
-lookup (x:xs) tableName colName | (name x) == tableName =  lookupCol (columns x) columnName
-                                | otherwise = lookup xs tableName colName
-lookup [] _ _ = Nothing
 
-lookupCol :: [Column] -> ColumnName -> Maybe PostgresType
-lookupCol (x:xs) colName | (name x) == colName =  Just (colType x)
-                         | otherwise = lookupCol xs colName
-lookupCol [] _ = Nothing
+lookupTab :: [Statement] -> TableName -> ColumnName -> Either Text PostgresType
+lookupTab (tab:tables) tableName colName | (tab.name) == tableName =  lookupCol tab.columns colName
+                                         | otherwise = lookupTab tables tableName colName
+lookupTab [] tableName _ = Left ("No " <> (show tableName) <> " in Schema.")
+
+
+lookupCol :: [Column] -> ColumnName -> Either Text PostgresType
+lookupCol (col:columns) colName | (col.name) == colName =  Right (col.colType)
+                                | otherwise = lookupCol columns colName
+lookupCol [] colName = Left ("Could not find column:  " <> (show colName))
+
 
 createEnumType = do
     lexeme "CREATE"
