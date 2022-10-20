@@ -28,6 +28,7 @@ import IHP.IDE.SchemaDesigner.Controller.Schema ()
 import IHP.IDE.SchemaDesigner.Controller.Tables ()
 import IHP.IDE.SchemaDesigner.Controller.Migrations ()
 import IHP.IDE.SchemaDesigner.Controller.PGViews ()
+import IHP.IDE.SchemaDesigner.Controller.Indexes ()
 import IHP.IDE.Data.Controller ()
 import IHP.IDE.Logs.Controller ()
 import IHP.IDE.CodeGen.Controller ()
@@ -123,6 +124,7 @@ instance FrontController ToolServerApplication where
         , parseRoute @CodeGenController
         , parseRoute @MigrationsController
         , parseRoute @PGViewsController
+        , parseRoute @IndexesController
         , startPage TablesAction
         ]
 

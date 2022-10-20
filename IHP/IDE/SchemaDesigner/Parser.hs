@@ -13,6 +13,7 @@ module IHP.IDE.SchemaDesigner.Parser
 , expression
 , sqlType
 , removeTypeCasts
+, parseIndexColumns
 ) where
 
 import IHP.Prelude
@@ -186,11 +187,11 @@ pPGViewColumn = do
     pure $ PGViewColumn {..}
 
 
-    ["INNER"] "JOIN"
-<|> "LEFT"  ["OUTER"] "JOIN" 
-<|> "RIGHT" ["OUTER"] "JOIN" 
-<|> "FULL"  ["OUTER"] "JOIN" 
-<|> "CROSS" "JOIN"
+--     ["INNER"] "JOIN"
+-- <|> "LEFT"  ["OUTER"] "JOIN"
+-- <|> "RIGHT" ["OUTER"] "JOIN"
+-- <|> "FULL"  ["OUTER"] "JOIN"
+-- <|> "CROSS" "JOIN"
 
 
 --parse cols, aliased cols, and expressions
@@ -247,7 +248,7 @@ type TableName = Text
 type ColumnName = Text
 lookup :: [Statement] -> TableName -> ColumnName -> Maybe PostgresType
 lookup (x:xs) tableName colName | (name x) == tableName =  lookupCol (columns x) columnName
-                                | otherwise = lookup xs tableName colName 
+                                | otherwise = lookup xs tableName colName
 lookup [] _ _ = Nothing
 
 lookupCol :: [Column] -> ColumnName -> Maybe PostgresType
@@ -710,14 +711,14 @@ createIndex = do
     lexeme "ON"
     tableName <- qualifiedIdentifier
     indexType <- optional parseIndexType
-    columns <- between (char '(' >> space) (char ')' >> space) (parseIndexColumn `sepBy` (char ',' >> space))
+    columns <- between (char '(' >> space) (char ')' >> space) parseIndexColumns
     whereClause <- optional do
         lexeme "WHERE"
         expression
     char ';'
     pure CreateIndex { indexName, unique, tableName, columns, whereClause, indexType }
 
-
+parseIndexColumns = parseIndexColumn `sepBy` (char ',' >> space)
 
 parseIndexColumn = do
     column <- expression

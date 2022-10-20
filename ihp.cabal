@@ -167,7 +167,6 @@ common shared-properties
             -Winaccessible-code
             -Wmissed-specialisations
             -Wall-missed-specialisations
-            -split-sections
 
 library
     import: shared-properties
@@ -309,6 +308,7 @@ library
         , IHP.IDE.SchemaDesigner.Controller.Validation
         , IHP.IDE.SchemaDesigner.Controller.Policies
         , IHP.IDE.SchemaDesigner.Controller.Migrations
+        , IHP.IDE.SchemaDesigner.Controller.Indexes
         , IHP.IDE.SchemaDesigner.View.Columns.Edit
         , IHP.IDE.SchemaDesigner.View.Columns.EditForeignKey
         , IHP.IDE.SchemaDesigner.View.Columns.New
@@ -332,6 +332,7 @@ library
         , IHP.IDE.SchemaDesigner.View.Migrations.Edit
         , IHP.IDE.SchemaDesigner.View.Migrations.Index
         , IHP.IDE.SchemaDesigner.View.Migrations.New
+        , IHP.IDE.SchemaDesigner.View.Indexes.Edit
         , IHP.IDE.SchemaDesigner.SchemaOperations
         , IHP.IDE.Data.Controller
         , IHP.IDE.Data.View.EditRow

@@ -18,6 +18,10 @@ module IHP.LoginSupport.Helper.Controller
 , module IHP.AuthSupport.Authorization
 , module IHP.AuthSupport.Authentication
 , enableRowLevelSecurityIfLoggedIn
+, currentRoleOrNothing
+, currentRole
+, currentRoleId
+, ensureIsRole
 ) where
 
 import IHP.Prelude
@@ -165,10 +169,8 @@ enableRowLevelSecurityIfLoggedIn ::
 enableRowLevelSecurityIfLoggedIn = do
     case currentUserOrNothing of
         Just user -> do
-            let rlsAuthenticatedRole = ?context
-                    |> FrameworkConfig.getFrameworkConfig
-                    |> get #rlsAuthenticatedRole
-            let rlsUserId = PG.toField (get #id user)
+            let rlsAuthenticatedRole = ?context.frameworkConfig.rlsAuthenticatedRole
+            let rlsUserId = PG.toField user.id
             let rlsContext = ModelSupport.RowLevelSecurityContext { rlsAuthenticatedRole, rlsUserId}
             putContext rlsContext
         Nothing -> pure ()
