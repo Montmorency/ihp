@@ -8,6 +8,7 @@
 , directory
 , string-conversions
 , warp
+, warp-systemd
 , wai
 , mtl
 , blaze-markup
@@ -60,9 +61,10 @@
 , cereal-text
 , neat-interpolation
 , unagi-chan
-, with-utf8_1_1_0_0
+, with-utf8
 , ihp-hsx
 , ihp-postgresql-simple-extra
+, safe-exceptions
 , nix-gitignore
 , filter
 }:
@@ -78,6 +80,7 @@ mkDerivation {
     directory
     string-conversions
     warp
+    warp-systemd
     wai
     mtl
     blaze-html
@@ -130,9 +133,10 @@ mkDerivation {
     cereal-text
     neat-interpolation
     unagi-chan
-    with-utf8_1_1_0_0
+    with-utf8
     ihp-hsx
     ihp-postgresql-simple-extra
+    safe-exceptions
   ];
   license = lib.licenses.mit;
   enableLibraryForGhci = true;

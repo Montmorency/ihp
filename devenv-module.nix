@@ -32,6 +32,7 @@ that is defined in flake-module.nix
                         directory
                         string-conversions
                         warp
+                        warp-systemd
                         wai
                         mtl
                         blaze-html
@@ -84,12 +85,19 @@ that is defined in flake-module.nix
                         cereal-text
                         neat-interpolation
                         unagi-chan
-                        with-utf8_1_1_0_0
+                        with-utf8
 
                         # Development Specific Tools (not in ihp.nix)
                         hspec
                         ihp-hsx
                         ihp-postgresql-simple-extra
+
+
+                        http-streams
+                        HsOpenSSL
+                        http-streams
+                        io-streams
+                        network-uri
                     ]);
 
             scripts.tests.exec = ''

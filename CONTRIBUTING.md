@@ -33,6 +33,12 @@ direnv allow
 cd -
 ```
 
+If the compiler can't locate certain IHP dependencies, it may be due to nix not updating IHP. In these instances, run the following command from the host project:
+
+```
+nix flake lock --update-input ihp
+```
+
 ### Faster Haskell Builds
 
 Uncomment the `configureFlags = [ "--flag FastBuild" ];` and `doHaddock = false;` lines in the `IHP/ihp.nix` for fast rebuilds, otherwise you could up waiting up to half an hour while IHP builds itself.
@@ -82,7 +88,7 @@ use `make console` to load your application together with the framework located 
 
 ```
 ghci
-:l IHP/exe/IHP/IDE/DevServer.hs
+:l ihp/ihp-ide/exe/IHP/IDE/DevServer.hs
 main
 ```
 
@@ -95,7 +101,7 @@ You can enable additional debug logging for the development server by setting th
 ```
 export DEBUG=1
 ghci
-:l IHP/exe/IHP/IDE/DevServer.hs
+:l ihp/ihp-ide/exe/IHP/IDE/DevServer.hs
 main
 ```
 

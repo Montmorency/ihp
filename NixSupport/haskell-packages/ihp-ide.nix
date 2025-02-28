@@ -61,10 +61,11 @@
 , cereal-text
 , neat-interpolation
 , unagi-chan
-, with-utf8_1_1_0_0
+, with-utf8
 , ihp-hsx
 , ihp-postgresql-simple-extra
 , ihp
+, safe-exceptions
 , makeWrapper
 }:
 mkDerivation {
@@ -132,10 +133,11 @@ mkDerivation {
     cereal-text
     neat-interpolation
     unagi-chan
-    with-utf8_1_1_0_0
+    with-utf8
     ihp-hsx
     ihp-postgresql-simple-extra
     ihp
+    safe-exceptions
   ];
   buildDepends = [ makeWrapper ];
   license = lib.licenses.mit;

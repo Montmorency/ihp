@@ -36,12 +36,9 @@ let
     builtins.listToAttrs (map toPackage names);
 
   ihpDontCheckPackages = [];
-  ihpDoJailbreakPackages = ["microlens-th"];
+  ihpDoJailbreakPackages = ["microlens-th" "warp-systemd" "bytebuild"];
   ihpDontHaddockPackages = [];
 in ghcCompiler.override {
-  ghc = if pkgs.stdenv.isDarwin
-    then ghcCompiler.ghc.overrideAttrs (oldAttrs: { patches = [ ./ghc-12264.patch ./scav-bco.patch ] ++ (oldAttrs.patches or []); })
-    else ghcCompiler.ghc;
   overrides = composeExtensionsList [
     generatedOverrides
 
@@ -56,6 +53,7 @@ in ghcCompiler.override {
     (makeOverrides pkgs.haskell.lib.dontHaddock dontHaddockPackages)
     manualOverrides
 
-    (self: super: { websockets = super.websockets_0_13_0_0; })
+    (self: super: { haskell-language-server = pkgs.haskell.lib.appendConfigureFlag super.haskell-language-server "--enable-executable-dynamic"; })
+
   ];
 }
