@@ -868,12 +868,12 @@ class CanSelect model where
     type SelectValue model :: GHC.Types.Type
 
     -- | Here we specify the <option>-text
-    selectLabel :: model -> Text
+    selectLabel :: _ => model -> Text
     default selectLabel :: Show model => model -> Text
     selectLabel = tshow
 
     -- | Here we specify how to transform the model into @<option>@-value
-    selectValue :: model -> SelectValue model
+    selectValue ::  model -> SelectValue model
     default selectValue :: HasField "id" model (SelectValue model) => model -> SelectValue model
     selectValue = (.id)
 
