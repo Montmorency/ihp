@@ -143,11 +143,6 @@ isJSXFile = List.isSuffixOf ".jsx"
 isTSXFile :: String -> Bool
 isTSXFile = List.isSuffixOf ".tsx"
 
-isFrontendFile :: String -> Bool
-isFrontendFile = any <$> [isJsFile, isTSFile, isJSXFile, isTSXFile] <*> 
-
-
-
 isHaskellFile :: String -> Bool
 isHaskellFile = List.isSuffixOf ".hs"
 
