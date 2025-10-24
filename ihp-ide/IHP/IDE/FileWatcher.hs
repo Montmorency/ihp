@@ -130,6 +130,24 @@ shouldActOnFileChange event =
     let path = event.eventPath
     in isHaskellFile path || isAssetFile path || isSQLFile path
 
+
+isJSFile :: String -> Bool
+isJSFile = List.isSuffixOf ".js"
+
+isTSFile :: String -> Bool
+isTSFile = List.isSuffixOf ".ts"
+
+isJSXFile :: String -> Bool
+isJSXFile = List.isSuffixOf ".jsx"
+
+isTSXFile :: String -> Bool
+isTSXFile = List.isSuffixOf ".tsx"
+
+isFrontendFile :: String -> Bool
+isFrontendFile = any <$> [isJsFile, isTSFile, isJSXFile, isTSXFile] <*> 
+
+
+
 isHaskellFile :: String -> Bool
 isHaskellFile = List.isSuffixOf ".hs"
 
