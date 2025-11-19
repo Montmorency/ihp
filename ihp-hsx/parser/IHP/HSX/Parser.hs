@@ -224,13 +224,13 @@ hsxAttributeName = do
         pure name
     where
         isValidAttributeName name =
-            "data-" `Text.isPrefixOf` name
+               "data-" `Text.isPrefixOf` name
             || "aria-" `Text.isPrefixOf` name
             || "hx-" `Text.isPrefixOf` name
             || name `Set.member` attributes
             || name `Set.member` ?settings.additionalAttributeNames
 
-        rawAttribute = takeWhile1P Nothing (\c -> Char.isAlphaNum c || c == '-' || c == '_')
+        rawAttribute = takeWhile1P Nothing (\c -> Char.isAlphaNum c || c == '-' || c == '_' || c == ':')
 
 
 hsxQuotedValue :: Parser AttributeValue
